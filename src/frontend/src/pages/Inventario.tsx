@@ -5,6 +5,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,12 +24,18 @@ import {
 import {
   Barcode,
   Camera,
+  FileDown,
+  FileUp,
   ImageIcon,
+  LayoutGrid,
+  LayoutList,
   Loader2,
+  MoreVertical,
   Package,
   Pencil,
   Plus,
   QrCode,
+  Search,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -37,6 +49,7 @@ import {
   useUpdateProduct,
 } from "../hooks/useQueries";
 import { useQRScanner } from "../qr-code/useQRScanner";
+import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
 
 function formatPrice(price: bigint): string {
   return (Number(price) / 100).toFixed(2);
@@ -52,6 +65,65 @@ const DEFAULT_UNITS = [
   "Paquete",
   "Docena",
 ];
+
+// ---------- LocalStorage helpers ----------
+interface ProductMeta {
+  image: string | null;
+  unit: string;
+}
+
+function getProductMeta(id: bigint): ProductMeta {
+  try {
+    const raw = localStorage.getItem(`product-meta-${String(id)}`);
+    if (raw) return JSON.parse(raw) as ProductMeta;
+  } catch {}
+  return { image: null, unit: "Unidad" };
+}
+
+function setProductMeta(id: bigint, meta: ProductMeta) {
+  try {
+    localStorage.setItem(`product-meta-${String(id)}`, JSON.stringify(meta));
+  } catch {}
+}
+
+function removeProductMeta(id: bigint) {
+  try {
+    localStorage.removeItem(`product-meta-${String(id)}`);
+  } catch {}
+}
+
+async function toBase64(src: string): Promise<string> {
+  if (src.startsWith("data:")) return src;
+  const res = await fetch(src);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ---------- ProductThumbnail ----------
+function ProductThumbnail({ productId }: { productId: bigint }) {
+  const meta = getProductMeta(productId);
+  if (meta.image) {
+    return (
+      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-border">
+        <img
+          src={meta.image}
+          alt="producto"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
+      <Package size={16} className="text-teal" />
+    </div>
+  );
+}
 
 // ---------- QR Scanner Overlay ----------
 function QRScannerOverlay({
@@ -313,10 +385,12 @@ function ProductModal({
   open,
   onClose,
   editProduct,
+  onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   editProduct?: Product | null;
+  onSaved?: () => void;
 }) {
   const isEditing = !!editProduct;
   const createProduct = useCreateProduct();
@@ -349,6 +423,16 @@ function ProductModal({
       setPrecioCosto("");
       setEntradas(0);
       setSalidas(0);
+      // Load existing meta (image + unit)
+      const meta = getProductMeta(editProduct.id);
+      setImagePreview(meta.image);
+      const savedUnit = meta.unit || "Unidad";
+      setSelectedUnit(savedUnit);
+      if (!DEFAULT_UNITS.includes(savedUnit)) {
+        setUnits((prev) =>
+          prev.includes(savedUnit) ? prev : [...prev, savedUnit],
+        );
+      }
     } else {
       resetFields();
     }
@@ -364,6 +448,7 @@ function ProductModal({
     setPrecioVenta("");
     setEntradas(0);
     setSalidas(0);
+    setUnits(DEFAULT_UNITS);
   };
 
   const handleGallery = () => fileInputRef.current?.click();
@@ -408,10 +493,18 @@ function ProductModal({
       toast.error("La cantidad no puede ser negativa");
       return;
     }
-    const stockFinal = isEditing
-      ? cantidad + entradas - salidas
-      : cantidad + entradas - salidas;
+    const stockFinal = cantidad + entradas - salidas;
     try {
+      // Convert image to base64 for persistent storage
+      let base64Image: string | null = null;
+      if (imagePreview) {
+        try {
+          base64Image = await toBase64(imagePreview);
+        } catch {
+          base64Image = null;
+        }
+      }
+
       if (isEditing && editProduct) {
         await updateProduct.mutateAsync({
           id: editProduct.id,
@@ -420,16 +513,22 @@ function ProductModal({
           barcode: codigo.trim(),
           stock: BigInt(Math.max(0, stockFinal)),
         });
+        setProductMeta(editProduct.id, {
+          image: base64Image,
+          unit: selectedUnit,
+        });
         toast.success("Producto actualizado");
       } else {
-        await createProduct.mutateAsync({
+        const newId = await createProduct.mutateAsync({
           name: nombre.trim(),
           price: BigInt(Math.round(ventaNum * 100)),
           barcode: codigo.trim(),
           stock: BigInt(Math.max(0, stockFinal)),
         });
+        setProductMeta(newId, { image: base64Image, unit: selectedUnit });
         toast.success("Producto guardado");
       }
+      onSaved?.();
       handleClose();
     } catch (err) {
       toast.error(
@@ -708,8 +807,23 @@ function ProductModal({
 export default function Inventario() {
   const { data: products = [], isLoading } = useProducts();
   const deleteProduct = useDeleteProduct();
+  const createProduct = useCreateProduct();
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [, forceUpdate] = useState(0);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  const fileInputRef2 = useRef<HTMLInputElement>(null);
+
+  const filteredProducts = searchTerm
+    ? products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.barcode.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    : products;
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
@@ -720,6 +834,7 @@ export default function Inventario() {
     if (!window.confirm(`¿Eliminar "${product.name}"?`)) return;
     try {
       await deleteProduct.mutateAsync(product.id);
+      removeProductMeta(product.id);
       toast.success("Producto eliminado");
     } catch {
       toast.error("Error al eliminar el producto");
@@ -731,11 +846,176 @@ export default function Inventario() {
     setEditingProduct(null);
   };
 
+  const exportCSV = () => {
+    const header = buildFileHeader();
+    const cols =
+      "Código del producto,Nombre del producto,Stock final,Unidad de medida,Precio de venta";
+    const rows = filteredProducts.map((p) => {
+      const unit = getProductMeta(p.id).unit;
+      return `${p.barcode},${p.name},${String(p.stock)},${unit},${formatPrice(p.price)}`;
+    });
+    const csv = `${header
+      .split("\n")
+      .map((l) => `# ${l}`)
+      .join("\n")}\n${[cols, ...rows].join("\n")}`;
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `inventario_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const htmlHeader = buildHtmlHeader();
+    const rows = filteredProducts
+      .map((p) => {
+        const unit = getProductMeta(p.id).unit;
+        return `<tr><td>${p.barcode}</td><td>${p.name}</td><td>${String(p.stock)}</td><td>${unit}</td><td>$${formatPrice(p.price)}</td></tr>`;
+      })
+      .join("");
+    const html = `<html><head><title>Inventario</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Inventario de Productos</h2><table><thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Unidad</th><th>Precio venta</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.print();
+    }
+  };
+
+  const importCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      const text = await file.text();
+      const lines = text.split("\n");
+      let imported = 0;
+      let errors = 0;
+      let headerSkipped = false;
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        // Skip comment lines
+        if (line.startsWith("#")) continue;
+        // Skip header row (first non-comment line that starts with "nombre")
+        if (!headerSkipped && line.toLowerCase().startsWith("nombre")) {
+          headerSkipped = true;
+          continue;
+        }
+
+        // Parse columns: nombre(0), código(1), cantidad(2), unidad(3), precioCosto(4), precioVenta(5)
+        const cols = line.split(",").map((c) => c.trim());
+        const nombre = cols[0] ?? "";
+        const codigo = cols[1] ?? "";
+        const cantidad = Number.parseInt(cols[2] ?? "0") || 0;
+        const unidad = cols[3] ?? "Unidad";
+        // col 4 is precio costo — ignored
+        const precioVenta = Number.parseFloat(cols[5] ?? "0") || 0;
+
+        if (!nombre || precioVenta <= 0) {
+          errors++;
+          continue;
+        }
+
+        try {
+          const newId = await createProduct.mutateAsync({
+            name: nombre,
+            price: BigInt(Math.round(precioVenta * 100)),
+            barcode: codigo,
+            stock: BigInt(Math.max(0, cantidad)),
+          });
+          setProductMeta(newId, { image: null, unit: unidad || "Unidad" });
+          imported++;
+        } catch {
+          errors++;
+        }
+      }
+
+      forceUpdate((n) => n + 1);
+      if (imported > 0) {
+        toast.success(
+          `${imported} producto${imported !== 1 ? "s" : ""} importado${imported !== 1 ? "s" : ""} correctamente`,
+        );
+      }
+      if (errors > 0) {
+        toast.warning(
+          `${errors} fila${errors !== 1 ? "s" : ""} no se pudo${errors !== 1 ? "eron" : ""} importar`,
+        );
+      }
+    } catch {
+      toast.error("Error al leer el archivo CSV");
+    }
+  };
+
   return (
     <div className="relative px-4 pb-6 pt-4">
-      <p className="text-sm text-muted-foreground mb-4">
-        {products.length} productos en inventario
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">
+          {filteredProducts.length} productos en inventario
+        </p>
+        <div className="flex items-center gap-1 ml-auto mr-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`p-1.5 rounded-lg transition-colors ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutList size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`p-1.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutGrid size={16} />
+          </button>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              data-ocid="inventario.dropdown_menu"
+            >
+              <MoreVertical size={18} className="text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => setShowSearch(!showSearch)}>
+              <Search size={14} className="mr-2" /> Buscar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => fileInputRef2.current?.click()}>
+              <FileUp size={14} className="mr-2" /> Importar CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportCSV}>
+              <FileDown size={14} className="mr-2" /> Exportar CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportPDF}>
+              <FileDown size={14} className="mr-2" /> Exportar PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <input
+          ref={fileInputRef2}
+          type="file"
+          accept=".csv"
+          className="hidden"
+          onChange={importCSV}
+        />
+      </div>
+      {showSearch && (
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="Buscar por nombre o código..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+      )}
       <ScrollArea className="h-[calc(100vh-180px)]">
         {isLoading ? (
           <div className="space-y-3" data-ocid="inventario.loading_state">
@@ -755,55 +1035,91 @@ export default function Inventario() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {products.map((p, idx) => (
-              <div
-                key={String(p.id)}
-                data-ocid={`inventario.item.${idx + 1}`}
-                className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-xs"
-              >
-                <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
-                  <Package size={16} className="text-teal" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{p.name}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Barcode size={11} className="text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {p.barcode}
-                    </span>
+          <>
+            {viewMode === "list" ? (
+              <div className="space-y-2">
+                {filteredProducts.map((p, idx) => (
+                  <div
+                    key={String(p.id)}
+                    data-ocid={`inventario.item.${idx + 1}`}
+                    className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-xs"
+                  >
+                    <ProductThumbnail productId={p.id} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{p.name}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Barcode size={11} className="text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {p.barcode}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sm text-teal">
+                        ${formatPrice(p.price)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Stock: {String(p.stock)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(p)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        aria-label="Editar producto"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        aria-label="Eliminar producto"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-bold text-sm text-teal">
-                    ${formatPrice(p.price)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Stock: {String(p.stock)}
-                  </p>
-                </div>
-                {/* Edit / Delete buttons */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleEdit(p)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                    aria-label="Editar producto"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(p)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    aria-label="Eliminar producto"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredProducts.map((p, idx) => (
+                  <div
+                    key={String(p.id)}
+                    data-ocid={`inventario.item.${idx + 1}`}
+                    className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2 shadow-xs"
+                  >
+                    <ProductThumbnail productId={p.id} />
+                    <p className="font-semibold text-xs truncate">{p.name}</p>
+                    <p className="font-bold text-xs text-teal">
+                      ${formatPrice(p.price)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Stock: {String(p.stock)}
+                    </p>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(p)}
+                        className="p-1 rounded hover:bg-muted"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p)}
+                        className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </ScrollArea>
 
@@ -825,6 +1141,7 @@ export default function Inventario() {
         open={showModal}
         onClose={handleModalClose}
         editProduct={editingProduct}
+        onSaved={() => forceUpdate((n) => n + 1)}
       />
     </div>
   );

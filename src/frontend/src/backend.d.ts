@@ -46,6 +46,7 @@ export interface backendInterface {
     deleteCustomer(id: bigint): Promise<void>;
     deletePaymentType(id: bigint): Promise<void>;
     deleteProduct(id: bigint): Promise<void>;
+    deleteSale(saleId: bigint): Promise<void>;
     getAllCustomers(): Promise<Array<Customer>>;
     getAllPaymentTypes(): Promise<Array<PaymentType>>;
     getAllProducts(): Promise<Array<Product>>;

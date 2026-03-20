@@ -21,12 +21,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   DollarSign,
   FileDown,
   MoreVertical,
+  Package,
   Receipt,
   Search,
   Share2,
@@ -39,10 +39,12 @@ import { toast } from "sonner";
 import type { Customer, PaymentType, Product, Sale } from "../backend.d";
 import {
   useCustomers,
+  useDeleteSale,
   usePaymentTypes,
   useProducts,
   useSales,
 } from "../hooks/useQueries";
+import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
 
 function formatPrice(amount: bigint): string {
   return (Number(amount) / 100).toFixed(2);
@@ -67,6 +69,89 @@ function getPaymentName(id: bigint, pts: PaymentType[]): string {
 
 function getProductName(id: bigint, products: Product[]): string {
   return products.find((p) => p.id === id)?.name ?? `Producto #${String(id)}`;
+}
+
+// ---- Delete Confirmation Dialog ----
+function DeleteConfirmDialog({
+  sale,
+  open,
+  onClose,
+  onConfirm,
+  products,
+  isDeleting,
+}: {
+  sale: Sale | null;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  products: Product[];
+  isDeleting: boolean;
+}) {
+  if (!sale) return null;
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-sm mx-auto"
+        data-ocid="delete_confirm.dialog"
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package size={16} className="text-teal" /> Productos restituidos al
+            inventario
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Al eliminar esta venta, los siguientes productos serán devueltos al
+            inventario:
+          </p>
+          <div className="bg-muted rounded-xl overflow-hidden">
+            {sale.items.map((item, idx) => (
+              <div
+                key={`${String(item.productId)}-${idx}`}
+                className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0"
+              >
+                <span className="text-sm font-medium truncate flex-1">
+                  {getProductName(item.productId, products)}
+                </span>
+                <span className="text-sm font-bold text-teal ml-3">
+                  +{String(item.quantity)} uds.
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Esta acción no se puede deshacer.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={onConfirm}
+              className="flex-1 bg-destructive text-white hover:bg-destructive/90"
+              disabled={isDeleting}
+              data-ocid="delete_confirm.submit_button"
+            >
+              {isDeleting ? "Eliminando..." : "Confirmar"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function SaleDetailSheet({
@@ -189,7 +274,6 @@ function SearchModal({
     onSearch({ dateFrom, dateTo, amountMin, amountMax, customer });
     onClose();
   };
-
   const handleClear = () => {
     setDateFrom("");
     setDateTo("");
@@ -367,7 +451,7 @@ interface SearchFilters {
 }
 
 export default function Ventas() {
-  const queryClient = useQueryClient();
+  const deleteSale = useDeleteSale();
   const { data: sales = [], isLoading } = useSales();
   const { data: customers = [] } = useCustomers();
   const { data: paymentTypes = [] } = usePaymentTypes();
@@ -376,6 +460,8 @@ export default function Ventas() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     dateFrom: "",
     dateTo: "",
@@ -386,7 +472,6 @@ export default function Ventas() {
 
   const filteredSales = useMemo(() => {
     let result = [...sales].sort((a, b) => Number(b.date) - Number(a.date));
-
     if (filters.customer) {
       result = result.filter((s) =>
         getCustomerName(s.customerId, customers)
@@ -415,12 +500,23 @@ export default function Ventas() {
 
   const hasFilters = Object.values(filters).some(Boolean);
 
-  const handleDelete = (sale: Sale, e: React.MouseEvent) => {
+  const handleDeleteClick = (sale: Sale, e: React.MouseEvent) => {
     e.stopPropagation();
-    queryClient.setQueryData(["sales"], (old: Sale[] = []) =>
-      old.filter((s) => s.id !== sale.id),
-    );
-    toast.success("Venta eliminada");
+    setSaleToDelete(sale);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!saleToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteSale.mutateAsync(saleToDelete.id);
+      toast.success("Venta eliminada y stock restaurado");
+    } catch {
+      toast.error("Error al eliminar la venta");
+    } finally {
+      setIsDeleting(false);
+      setSaleToDelete(null);
+    }
   };
 
   const handleShare = async (sale: Sale, e: React.MouseEvent) => {
@@ -435,12 +531,16 @@ export default function Ventas() {
   };
 
   const exportCSV = () => {
-    const header = "ID,Fecha,Cliente,Pago,Total";
+    const fileHeader = buildFileHeader();
+    const cols = "ID,Fecha,Cliente,Pago,Total";
     const rows = filteredSales.map(
       (s) =>
         `${String(s.id)},${formatDate(s.date)},${getCustomerName(s.customerId, customers)},${getPaymentName(s.paymentTypeId, paymentTypes)},$${formatPrice(s.totalAmount)}`,
     );
-    const csv = [header, ...rows].join("\n");
+    const csv = `${fileHeader
+      .split("\n")
+      .map((l) => `# ${l}`)
+      .join("\n")}\n${[cols, ...rows].join("\n")}`;
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -451,19 +551,14 @@ export default function Ventas() {
   };
 
   const exportPDF = () => {
-    const content = filteredSales
+    const htmlHeader = buildHtmlHeader();
+    const rows = filteredSales
       .map(
         (s) =>
-          `<tr>
-            <td>${String(s.id)}</td>
-            <td>${formatDate(s.date)}</td>
-            <td>${getCustomerName(s.customerId, customers)}</td>
-            <td>${getPaymentName(s.paymentTypeId, paymentTypes)}</td>
-            <td>$${formatPrice(s.totalAmount)}</td>
-          </tr>`,
+          `<tr><td>${String(s.id)}</td><td>${formatDate(s.date)}</td><td>${getCustomerName(s.customerId, customers)}</td><td>${getPaymentName(s.paymentTypeId, paymentTypes)}</td><td>$${formatPrice(s.totalAmount)}</td></tr>`,
       )
       .join("");
-    const html = `<html><head><title>Ventas</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}</style></head><body><h2>Lista de Ventas</h2><p>Exportado: ${new Date().toLocaleString("es-ES")}</p><table><thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Pago</th><th>Total</th></tr></thead><tbody>${content}</tbody></table></body></html>`;
+    const html = `<html><head><title>Ventas</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Lista de Ventas</h2><table><thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Pago</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
     const win = window.open("", "_blank");
     if (win) {
       win.document.write(html);
@@ -566,12 +661,9 @@ export default function Ventas() {
               }}
               className="w-full flex items-center gap-3 bg-card rounded-xl px-4 py-3.5 shadow-xs border border-border hover:shadow-card transition-shadow text-left"
             >
-              {/* Ticket icon */}
               <div className="w-10 h-10 rounded-xl bg-teal/15 flex items-center justify-center shrink-0">
                 <Receipt size={18} className="text-teal" />
               </div>
-
-              {/* Data */}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm truncate">
                   {getCustomerName(sale.customerId, customers)}
@@ -584,8 +676,6 @@ export default function Ventas() {
                   ${formatPrice(sale.totalAmount)}
                 </p>
               </div>
-
-              {/* Share + Delete */}
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
@@ -599,7 +689,7 @@ export default function Ventas() {
                 <button
                   type="button"
                   data-ocid={`ventas.delete_button.${idx + 1}`}
-                  onClick={(e) => handleDelete(sale, e)}
+                  onClick={(e) => handleDeleteClick(sale, e)}
                   className="p-2 rounded-lg hover:bg-destructive/10 transition-colors"
                   aria-label="Eliminar venta"
                 >
@@ -623,6 +713,14 @@ export default function Ventas() {
         open={showSearch}
         onClose={() => setShowSearch(false)}
         onSearch={setFilters}
+      />
+      <DeleteConfirmDialog
+        sale={saleToDelete}
+        open={saleToDelete !== null}
+        onClose={() => setSaleToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        products={products}
+        isDeleting={isDeleting}
       />
     </div>
   );

@@ -5,7 +5,9 @@ import List "mo:core/List";
 import Order "mo:core/Order";
 import Array "mo:core/Array";
 import Map "mo:core/Map";
+
 import Runtime "mo:core/Runtime";
+
 
 actor {
   public type Product = {
@@ -317,8 +319,40 @@ actor {
     paymentTypes.remove(id);
   };
 
+  func updateProductStock(productId : Nat, quantity : Nat) {
+    switch (products.get(productId)) {
+      case (null) { Runtime.trap("Product with id " # productId.toText() # " not found") };
+      case (?product) {
+        if (quantity > product.stock) { Runtime.trap("Insufficient stock for product " # product.name) };
+        let updatedProduct = {
+          product with
+          stock = product.stock - quantity;
+        };
+        products.add(productId, updatedProduct);
+      };
+    };
+  };
+
+  func restoreProductStock(productId : Nat, quantity : Nat) {
+    switch (products.get(productId)) {
+      case (null) { Runtime.trap("Product with id " # productId.toText() # " not found") };
+      case (?product) {
+        let updatedProduct = {
+          product with
+          stock = product.stock + quantity;
+        };
+        products.add(productId, updatedProduct);
+      };
+    };
+  };
+
   // Sales
   public shared ({ caller }) func createSale(customerId : Nat, paymentTypeId : Nat, items : [SaleItem]) : async Nat {
+    // Update product stocks and validate quantities
+    for (item in items.values()) {
+      updateProductStock(item.productId, item.quantity);
+    };
+
     let totalAmount = items.foldLeft(0, func(acc, item) { acc + (item.quantity * item.unitPrice) });
 
     let sale : Sale = {
@@ -332,6 +366,21 @@ actor {
     sales.add(nextSaleId, sale);
     nextSaleId += 1;
     sale.id;
+  };
+
+  public shared ({ caller }) func deleteSale(saleId : Nat) : async () {
+    switch (sales.get(saleId)) {
+      case (null) {
+        Runtime.trap("Sale not found");
+      };
+      case (?sale) {
+        // Restore product stock for each item
+        for (item in sale.items.values()) {
+          restoreProductStock(item.productId, item.quantity);
+        };
+        sales.remove(saleId);
+      };
+    };
   };
 
   public query ({ caller }) func getSale(id : Nat) : async Sale {

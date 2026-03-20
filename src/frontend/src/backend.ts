@@ -128,6 +128,7 @@ export interface backendInterface {
     deleteCustomer(id: bigint): Promise<void>;
     deletePaymentType(id: bigint): Promise<void>;
     deleteProduct(id: bigint): Promise<void>;
+    deleteSale(saleId: bigint): Promise<void>;
     getAllCustomers(): Promise<Array<Customer>>;
     getAllPaymentTypes(): Promise<Array<PaymentType>>;
     getAllProducts(): Promise<Array<Product>>;
@@ -238,6 +239,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteProduct(arg0);
+            return result;
+        }
+    }
+    async deleteSale(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteSale(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteSale(arg0);
             return result;
         }
     }

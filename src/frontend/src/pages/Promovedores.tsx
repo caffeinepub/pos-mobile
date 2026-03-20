@@ -5,12 +5,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mail, Pencil, Phone, Plus, Trash2, UserCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  FileDown,
+  FileUp,
+  LayoutGrid,
+  LayoutList,
+  Mail,
+  MoreVertical,
+  Pencil,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+  UserCheck,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
 
 interface Promoter {
   id: string;
@@ -48,7 +68,7 @@ function AddPromoterModal({
 
   const handleSave = () => {
     if (!name.trim()) {
-      toast.error("El nombre del promovedor es obligatorio");
+      toast.error("El nombre del proveedor es obligatorio");
       return;
     }
     const newPromoter: Promoter = {
@@ -58,7 +78,7 @@ function AddPromoterModal({
       email: email.trim(),
     };
     onSaved(newPromoter);
-    toast.success("Promovedor agregado");
+    toast.success("Proveedor agregado");
     setName("");
     setPhone("");
     setEmail("");
@@ -69,7 +89,7 @@ function AddPromoterModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-sm mx-auto">
         <DialogHeader>
-          <DialogTitle>Agregar promovedor</DialogTitle>
+          <DialogTitle>Agregar proveedor</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -78,7 +98,7 @@ function AddPromoterModal({
             </Label>
             <Input
               id="prom-name"
-              placeholder="Nombre del promovedor..."
+              placeholder="Nombre del proveedor..."
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -96,13 +116,13 @@ function AddPromoterModal({
             <Label htmlFor="prom-email">Email (opcional)</Label>
             <Input
               id="prom-email"
-              placeholder="Ej. promotor@email.com"
+              placeholder="Ej. proveedor@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <Button className="w-full" onClick={handleSave}>
-            Guardar promovedor
+            Guardar proveedor
           </Button>
         </div>
       </DialogContent>
@@ -134,7 +154,7 @@ function EditPromoterModal({
   const handleUpdate = () => {
     if (!promoter) return;
     if (!name.trim()) {
-      toast.error("El nombre del promovedor es obligatorio");
+      toast.error("El nombre del proveedor es obligatorio");
       return;
     }
     onSaved({
@@ -143,7 +163,7 @@ function EditPromoterModal({
       phone: phone.trim(),
       email: email.trim(),
     });
-    toast.success("Promovedor actualizado");
+    toast.success("Proveedor actualizado");
     onClose();
   };
 
@@ -151,7 +171,7 @@ function EditPromoterModal({
     <Dialog open={promoter !== null} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-sm mx-auto">
         <DialogHeader>
-          <DialogTitle>Editar promovedor</DialogTitle>
+          <DialogTitle>Editar proveedor</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -160,7 +180,7 @@ function EditPromoterModal({
             </Label>
             <Input
               id="edit-prom-name"
-              placeholder="Nombre del promovedor..."
+              placeholder="Nombre del proveedor..."
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -178,7 +198,7 @@ function EditPromoterModal({
             <Label htmlFor="edit-prom-email">Email (opcional)</Label>
             <Input
               id="edit-prom-email"
-              placeholder="Ej. promotor@email.com"
+              placeholder="Ej. proveedor@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -196,6 +216,19 @@ export default function Promovedores() {
   const [promoters, setPromoters] = useState<Promoter[]>(loadPromoters);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Promoter | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const csvImportRef = useRef<HTMLInputElement>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  const filteredPromoters = searchTerm
+    ? promoters.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          p.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    : promoters;
 
   const handleAdd = (p: Promoter) => {
     const updated = [...promoters, p];
@@ -217,11 +250,115 @@ export default function Promovedores() {
     toast.success(`"${p.name}" eliminado`);
   };
 
+  const exportCSV = () => {
+    const header = buildFileHeader();
+    const cols = "Nombre,Teléfono,Email";
+    const rows = filteredPromoters.map(
+      (p) => `${p.name},${p.phone},${p.email}`,
+    );
+    const csv = `${header
+      .split("\n")
+      .map((l) => `# ${l}`)
+      .join("\n")}\n${[cols, ...rows].join("\n")}`;
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `proveedores_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const htmlHeader = buildHtmlHeader();
+    const rows = filteredPromoters
+      .map(
+        (p) =>
+          `<tr><td>${p.name}</td><td>${p.phone}</td><td>${p.email}</td></tr>`,
+      )
+      .join("");
+    const html = `<html><head><title>Proveedores</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Lista de Proveedores</h2><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.print();
+    }
+  };
+
+  const importCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    toast.info("Importación CSV recibida (funcionalidad próximamente)");
+    e.target.value = "";
+  };
+
   return (
     <div className="relative px-4 pb-6 pt-4">
-      <p className="text-sm text-muted-foreground mb-4">
-        {promoters.length} promovedores registrados
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">
+          {filteredPromoters.length} proveedores registrados
+        </p>
+        <div className="flex items-center gap-1 ml-auto mr-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`p-1.5 rounded-lg transition-colors ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutList size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`p-1.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutGrid size={16} />
+          </button>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              data-ocid="proveedores.dropdown_menu"
+            >
+              <MoreVertical size={18} className="text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => setShowSearch(!showSearch)}>
+              <Search size={14} className="mr-2" /> Buscar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => csvImportRef.current?.click()}>
+              <FileUp size={14} className="mr-2" /> Importar CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportCSV}>
+              <FileDown size={14} className="mr-2" /> Exportar CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportPDF}>
+              <FileDown size={14} className="mr-2" /> Exportar PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <input
+          ref={csvImportRef}
+          type="file"
+          accept=".csv"
+          className="hidden"
+          onChange={importCSV}
+        />
+      </div>
+      {showSearch && (
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="Buscar proveedor..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+      )}
       <ScrollArea className="h-[calc(100vh-180px)]">
         {promoters.length === 0 ? (
           <div className="py-16 text-center">
@@ -229,61 +366,108 @@ export default function Promovedores() {
               size={40}
               className="mx-auto text-muted-foreground/30 mb-3"
             />
-            <p className="text-muted-foreground">Sin promovedores</p>
+            <p className="text-muted-foreground">Sin proveedores</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {promoters.map((p, idx) => (
-              <div
-                key={p.id}
-                data-ocid={`promovedores.item.${idx + 1}`}
-                className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-xs"
-              >
-                <div className="w-11 h-11 rounded-full bg-teal/15 flex items-center justify-center shrink-0">
-                  <span className="text-teal font-bold text-base">
-                    {p.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">{p.name}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    {p.phone && (
-                      <div className="flex items-center gap-1">
-                        <Phone size={11} className="text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {p.phone}
-                        </span>
+          <>
+            {viewMode === "list" ? (
+              <div className="space-y-2">
+                {filteredPromoters.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    data-ocid={`promovedores.item.${idx + 1}`}
+                    className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-xs"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-teal/15 flex items-center justify-center shrink-0">
+                      <span className="text-teal font-bold text-base">
+                        {p.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{p.name}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        {p.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone
+                              size={11}
+                              className="text-muted-foreground"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {p.phone}
+                            </span>
+                          </div>
+                        )}
+                        {p.email && (
+                          <div className="flex items-center gap-1">
+                            <Mail size={11} className="text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                              {p.email}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {p.email && (
-                      <div className="flex items-center gap-1">
-                        <Mail size={11} className="text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[120px]">
-                          {p.email}
-                        </span>
-                      </div>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(p)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(p)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(p)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredPromoters.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    data-ocid={`promovedores.item.${idx + 1}`}
+                    className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-2 shadow-xs text-center"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-teal/15 flex items-center justify-center">
+                      <span className="text-teal font-bold text-base">
+                        {p.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-xs truncate w-full">
+                      {p.name}
+                    </p>
+                    {p.phone && (
+                      <p className="text-xs text-muted-foreground truncate w-full">
+                        {p.phone}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-end gap-1 w-full">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(p)}
+                        className="p-1 rounded hover:bg-muted"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p)}
+                        className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </ScrollArea>
 

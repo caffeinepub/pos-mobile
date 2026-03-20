@@ -46,6 +46,7 @@ export interface _SERVICE {
   'deleteCustomer' : ActorMethod<[bigint], undefined>,
   'deletePaymentType' : ActorMethod<[bigint], undefined>,
   'deleteProduct' : ActorMethod<[bigint], undefined>,
+  'deleteSale' : ActorMethod<[bigint], undefined>,
   'getAllCustomers' : ActorMethod<[], Array<Customer>>,
   'getAllPaymentTypes' : ActorMethod<[], Array<PaymentType>>,
   'getAllProducts' : ActorMethod<[], Array<Product>>,

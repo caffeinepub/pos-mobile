@@ -1,7 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  ArrowDownToLine,
   BarChart2,
+  Info,
   List,
   Menu,
   Package,
@@ -14,13 +16,16 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { ThemeProvider } from "./context/ThemeContext";
 import { useSeed } from "./hooks/useQueries";
+import AcercaDe from "./pages/AcercaDe";
 import Clientes from "./pages/Clientes";
 import Configuracion from "./pages/Configuracion";
 import Inventario from "./pages/Inventario";
 import NuevaVenta from "./pages/NuevaVenta";
 import Promovedores from "./pages/Promovedores";
 import Reportes from "./pages/Reportes";
+import SalidaMercancia from "./pages/SalidaMercancia";
 import Ventas from "./pages/Ventas";
 
 const queryClient = new QueryClient();
@@ -28,11 +33,13 @@ const queryClient = new QueryClient();
 type Screen =
   | "nueva-venta"
   | "ventas"
+  | "salida-mercancia"
   | "inventario"
   | "clientes"
   | "promovedores"
   | "reportes"
-  | "configuracion";
+  | "configuracion"
+  | "acerca-de";
 
 const SCREENS: {
   id: Screen;
@@ -48,6 +55,12 @@ const SCREENS: {
   },
   { id: "ventas", label: "Ventas", icon: <List size={18} />, section: 1 },
   {
+    id: "salida-mercancia",
+    label: "Salida de Mercancía",
+    icon: <ArrowDownToLine size={18} />,
+    section: 1,
+  },
+  {
     id: "inventario",
     label: "Inventario",
     icon: <Package size={18} />,
@@ -56,7 +69,7 @@ const SCREENS: {
   { id: "clientes", label: "Clientes", icon: <Users size={18} />, section: 2 },
   {
     id: "promovedores",
-    label: "Promovedores",
+    label: "Proveedores",
     icon: <UserCheck size={18} />,
     section: 2,
   },
@@ -72,16 +85,19 @@ const SCREENS: {
     icon: <Settings size={18} />,
     section: 3,
   },
+  { id: "acerca-de", label: "Acerca de", icon: <Info size={18} />, section: 3 },
 ];
 
 const SCREEN_TITLES: Record<Screen, string> = {
   "nueva-venta": "Nueva Venta",
   ventas: "Ventas",
+  "salida-mercancia": "Salida de Mercancía",
   inventario: "Inventario",
   clientes: "Clientes",
-  promovedores: "Promovedores",
+  promovedores: "Proveedores",
   reportes: "Reportes",
   configuracion: "Configuración",
+  "acerca-de": "Acerca de",
 };
 
 function SeedButton() {
@@ -106,7 +122,6 @@ function AppInner() {
     setActiveScreen(screen);
     setSidebarOpen(false);
   };
-
   const sections = [1, 2, 3];
 
   return (
@@ -150,7 +165,6 @@ function AppInner() {
               className="fixed top-0 left-0 h-full w-72 bg-navy z-50 flex flex-col shadow-navy"
               aria-label="Menú lateral"
             >
-              {/* Sidebar header */}
               <div className="flex items-center justify-between px-4 h-14 border-b border-white/10">
                 <span className="text-white font-bold text-lg tracking-tight">
                   POS Mobile
@@ -165,8 +179,6 @@ function AppInner() {
                   <X size={18} />
                 </button>
               </div>
-
-              {/* Nav items */}
               <nav className="flex-1 overflow-y-auto py-3">
                 {sections.map((section, sIdx) => (
                   <div key={section}>
@@ -200,13 +212,10 @@ function AppInner() {
                   </div>
                 ))}
               </nav>
-
               <SeedButton />
-
-              {/* Footer */}
               <div className="px-4 pb-6 pt-2 border-t border-white/10">
                 <p className="text-white/30 text-xs text-center">
-                  © {new Date().getFullYear()}.{" "}
+                  ©{" "}
                   <a
                     href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
                     target="_blank"
@@ -232,7 +241,8 @@ function AppInner() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18 }}
             className={`absolute inset-0 flex flex-col ${
-              activeScreen === "nueva-venta"
+              activeScreen === "nueva-venta" ||
+              activeScreen === "salida-mercancia"
                 ? "overflow-hidden"
                 : "overflow-y-auto"
             }`}
@@ -250,11 +260,17 @@ function AppInner() {
               </div>
             )}
             {activeScreen === "ventas" && <Ventas />}
+            {activeScreen === "salida-mercancia" && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <SalidaMercancia />
+              </div>
+            )}
             {activeScreen === "inventario" && <Inventario />}
             {activeScreen === "clientes" && <Clientes />}
             {activeScreen === "promovedores" && <Promovedores />}
             {activeScreen === "reportes" && <Reportes />}
             {activeScreen === "configuracion" && <Configuracion />}
+            {activeScreen === "acerca-de" && <AcercaDe />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -267,7 +283,9 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppInner />
+      <ThemeProvider>
+        <AppInner />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
