@@ -1,11 +1,5 @@
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  ArrowLeft,
   Barcode,
   Camera,
   FileDown,
@@ -38,7 +33,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
 import { useCamera } from "../camera/useCamera";
@@ -381,13 +376,11 @@ function AddUnitInline({
 }
 
 // ---------- Product Modal (Add or Edit) ----------
-function ProductModal({
-  open,
+function ProductFormScreen({
   onClose,
   editProduct,
   onSaved,
 }: {
-  open: boolean;
   onClose: () => void;
   editProduct?: Product | null;
   onSaved?: () => void;
@@ -413,7 +406,7 @@ function ProductModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Populate fields when editing
-  // biome-ignore lint/correctness/useExhaustiveDependencies: open used intentionally to reset on reopen
+  // biome-ignore lint/correctness/useExhaustiveDependencies: editProduct used intentionally
   useEffect(() => {
     if (editProduct) {
       setNombre(editProduct.name);
@@ -436,7 +429,7 @@ function ProductModal({
     } else {
       resetFields();
     }
-  }, [editProduct, open]);
+  }, [editProduct]);
 
   const resetFields = () => {
     setImagePreview(null);
@@ -546,245 +539,244 @@ function ProductModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-        <DialogContent
-          className="max-w-md w-full p-0 gap-0 max-h-[90vh] flex flex-col"
-          data-ocid="inventario.dialog"
-        >
-          <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-            <DialogTitle className="text-lg font-bold">
-              {isEditing ? "Editar producto" : "Agregar producto"}
-            </DialogTitle>
-          </DialogHeader>
+      <div className="h-full flex flex-col" data-ocid="inventario.dialog">
+        <div className="flex items-center px-4 py-3 border-b border-border shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex items-center gap-2 text-sm font-medium text-foreground"
+          >
+            <ArrowLeft size={18} />
+            {isEditing ? "Editar producto" : "Agregar producto"}
+          </button>
+        </div>
 
-          <ScrollArea className="flex-1 overflow-auto">
-            <div className="px-5 pb-6 space-y-5">
-              {/* Image section */}
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-36 h-36 rounded-2xl border-2 border-dashed border-border bg-muted flex items-center justify-center overflow-hidden">
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <ImageIcon size={40} className="text-muted-foreground/40" />
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs"
-                    onClick={handleGallery}
-                    data-ocid="inventario.upload_button"
-                  >
-                    <ImageIcon size={16} />
-                    Galería
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs"
-                    onClick={() => setShowCamera(true)}
-                    data-ocid="inventario.camera.button"
-                  >
-                    <Camera size={16} />
-                    Cámara
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs text-destructive hover:text-destructive"
-                    onClick={() => setImagePreview(null)}
-                    disabled={!imagePreview}
-                    data-ocid="inventario.delete_button"
-                  >
-                    <Trash2 size={16} />
-                    Eliminar
-                  </Button>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </div>
-
-              {/* Nombre */}
-              <div className="space-y-1.5">
-                <Label htmlFor="nombre">
-                  Nombre del producto{" "}
-                  <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="nombre"
-                  placeholder="Ej. Arroz 1kg"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  data-ocid="inventario.input"
-                />
-              </div>
-
-              {/* Código */}
-              <div className="space-y-1.5">
-                <Label htmlFor="codigo">Código del producto</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="codigo"
-                    placeholder="Escribe o escanea"
-                    value={codigo}
-                    onChange={(e) => setCodigo(e.target.value)}
-                    className="flex-1"
-                    data-ocid="inventario.search_input"
+        <ScrollArea className="flex-1 overflow-auto">
+          <div className="px-5 pb-6 space-y-5 pt-4">
+            {/* Image section */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-36 h-36 rounded-2xl border-2 border-dashed border-border bg-muted flex items-center justify-center overflow-hidden">
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="preview"
+                    className="w-full h-full object-cover"
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 shrink-0"
-                    onClick={() => setShowQR(true)}
-                    data-ocid="inventario.qr.button"
-                  >
-                    <QrCode size={18} />
-                  </Button>
-                </div>
+                ) : (
+                  <ImageIcon size={40} className="text-muted-foreground/40" />
+                )}
               </div>
-
-              {/* Cantidad + Unidad */}
-              <div className="space-y-1.5">
-                <Label>Cantidad y unidad de medida</Label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={cantidad === 0 ? "" : cantidad}
-                    onChange={(e) => {
-                      const val = Number.parseInt(e.target.value) || 0;
-                      setCantidad(Math.max(0, val));
-                    }}
-                    className="w-24 shrink-0"
-                    data-ocid="inventario.cantidad.input"
-                  />
-                  <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                    <SelectTrigger
-                      className="flex-1"
-                      data-ocid="inventario.unit.select"
-                    >
-                      <SelectValue placeholder="Unidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {units.map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <AddUnitInline onAdd={handleAddUnit} />
-                </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs"
+                  onClick={handleGallery}
+                  data-ocid="inventario.upload_button"
+                >
+                  <ImageIcon size={16} />
+                  Galería
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs"
+                  onClick={() => setShowCamera(true)}
+                  data-ocid="inventario.camera.button"
+                >
+                  <Camera size={16} />
+                  Cámara
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs text-destructive hover:text-destructive"
+                  onClick={() => setImagePreview(null)}
+                  disabled={!imagePreview}
+                  data-ocid="inventario.delete_button"
+                >
+                  <Trash2 size={16} />
+                  Eliminar
+                </Button>
               </div>
-
-              {/* Precio costo */}
-              <div className="space-y-1.5">
-                <Label htmlFor="precioCosto">Precio de costo</Label>
-                <Input
-                  id="precioCosto"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="0.00"
-                  value={precioCosto}
-                  onChange={(e) => setPrecioCosto(e.target.value)}
-                  data-ocid="inventario.costo.input"
-                />
-              </div>
-
-              {/* Precio venta */}
-              <div className="space-y-1.5">
-                <Label htmlFor="precioVenta">
-                  Precio de venta <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="precioVenta"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="0.00"
-                  value={precioVenta}
-                  onChange={(e) => setPrecioVenta(e.target.value)}
-                  data-ocid="inventario.venta.input"
-                />
-              </div>
-
-              {/* Entradas y Salidas */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="entradas">Entradas</Label>
-                  <Input
-                    id="entradas"
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={entradas === 0 ? "" : entradas}
-                    onChange={(e) => {
-                      const val = Number.parseInt(e.target.value) || 0;
-                      setEntradas(Math.max(0, val));
-                    }}
-                    data-ocid="inventario.entradas.input"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="salidas">Salidas</Label>
-                  <Input
-                    id="salidas"
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={salidas === 0 ? "" : salidas}
-                    onChange={(e) =>
-                      handleSalidas(Number.parseInt(e.target.value) || 0)
-                    }
-                    data-ocid="inventario.salidas.input"
-                  />
-                </div>
-              </div>
-
-              {/* Stock preview */}
-              <p className="text-xs text-muted-foreground">
-                Stock final: {Math.max(0, cantidad + entradas - salidas)}{" "}
-                {selectedUnit}
-              </p>
-
-              {/* Guardar / Actualizar */}
-              <Button
-                className="w-full h-12 text-base font-semibold mt-2"
-                onClick={handleGuardar}
-                disabled={isPending}
-                data-ocid="inventario.submit_button"
-              >
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isPending
-                  ? isEditing
-                    ? "Actualizando..."
-                    : "Guardando..."
-                  : isEditing
-                    ? "Actualizar"
-                    : "Guardar producto"}
-              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
             </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+
+            {/* Nombre */}
+            <div className="space-y-1.5">
+              <Label htmlFor="nombre">
+                Nombre del producto <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="nombre"
+                placeholder="Ej. Arroz 1kg"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                data-ocid="inventario.input"
+              />
+            </div>
+
+            {/* Código */}
+            <div className="space-y-1.5">
+              <Label htmlFor="codigo">Código del producto</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="codigo"
+                  placeholder="Escribe o escanea"
+                  value={codigo}
+                  onChange={(e) => setCodigo(e.target.value)}
+                  className="flex-1"
+                  data-ocid="inventario.search_input"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => setShowQR(true)}
+                  data-ocid="inventario.qr.button"
+                >
+                  <QrCode size={18} />
+                </Button>
+              </div>
+            </div>
+
+            {/* Cantidad + Unidad */}
+            <div className="space-y-1.5">
+              <Label>Cantidad y unidad de medida</Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={cantidad === 0 ? "" : cantidad}
+                  onChange={(e) => {
+                    const val = Number.parseInt(e.target.value) || 0;
+                    setCantidad(Math.max(0, val));
+                  }}
+                  className="w-24 shrink-0"
+                  data-ocid="inventario.cantidad.input"
+                />
+                <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+                  <SelectTrigger
+                    className="flex-1"
+                    data-ocid="inventario.unit.select"
+                  >
+                    <SelectValue placeholder="Unidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {units.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <AddUnitInline onAdd={handleAddUnit} />
+              </div>
+            </div>
+
+            {/* Precio costo */}
+            <div className="space-y-1.5">
+              <Label htmlFor="precioCosto">Precio de costo</Label>
+              <Input
+                id="precioCosto"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0.00"
+                value={precioCosto}
+                onChange={(e) => setPrecioCosto(e.target.value)}
+                data-ocid="inventario.costo.input"
+              />
+            </div>
+
+            {/* Precio venta */}
+            <div className="space-y-1.5">
+              <Label htmlFor="precioVenta">
+                Precio de venta <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="precioVenta"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0.00"
+                value={precioVenta}
+                onChange={(e) => setPrecioVenta(e.target.value)}
+                data-ocid="inventario.venta.input"
+              />
+            </div>
+
+            {/* Entradas y Salidas */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="entradas">Entradas</Label>
+                <Input
+                  id="entradas"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={entradas === 0 ? "" : entradas}
+                  onChange={(e) => {
+                    const val = Number.parseInt(e.target.value) || 0;
+                    setEntradas(Math.max(0, val));
+                  }}
+                  data-ocid="inventario.entradas.input"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="salidas">Salidas</Label>
+                <Input
+                  id="salidas"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={salidas === 0 ? "" : salidas}
+                  onChange={(e) =>
+                    handleSalidas(Number.parseInt(e.target.value) || 0)
+                  }
+                  data-ocid="inventario.salidas.input"
+                />
+              </div>
+            </div>
+
+            {/* Stock preview */}
+            <p className="text-xs text-muted-foreground">
+              Stock final: {Math.max(0, cantidad + entradas - salidas)}{" "}
+              {selectedUnit}
+            </p>
+
+            {/* Guardar / Actualizar */}
+            <Button
+              className="w-full h-12 text-base font-semibold mt-2"
+              onClick={handleGuardar}
+              disabled={isPending}
+              data-ocid="inventario.submit_button"
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {isPending
+                ? isEditing
+                  ? "Actualizando..."
+                  : "Guardando..."
+                : isEditing
+                  ? "Actualizar"
+                  : "Guardar producto"}
+            </Button>
+          </div>
+        </ScrollArea>
+      </div>
 
       {showCamera && (
         <CameraOverlay
@@ -804,16 +796,32 @@ function ProductModal({
 }
 
 // ---------- Inventario Page ----------
-export default function Inventario() {
+interface InventarioProps {
+  openAdd?: boolean;
+  onAddComplete?: () => void;
+}
+
+export default function Inventario({
+  openAdd,
+  onAddComplete,
+}: InventarioProps) {
   const { data: products = [], isLoading } = useProducts();
   const deleteProduct = useDeleteProduct();
   const createProduct = useCreateProduct();
-  const [showModal, setShowModal] = useState(false);
+  const [showProductScreen, setShowProductScreen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [, forceUpdate] = useState(0);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: controlled by openAdd
+  useEffect(() => {
+    if (openAdd) {
+      setEditingProduct(null);
+      setShowProductScreen(true);
+    }
+  }, [openAdd]);
 
   const fileInputRef2 = useRef<HTMLInputElement>(null);
 
@@ -827,7 +835,7 @@ export default function Inventario() {
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    setShowModal(true);
+    setShowProductScreen(true);
   };
 
   const handleDelete = async (product: Product) => {
@@ -841,10 +849,10 @@ export default function Inventario() {
     }
   };
 
-  const handleModalClose = () => {
-    setShowModal(false);
+  const handleModalClose = useCallback(() => {
+    setShowProductScreen(false);
     setEditingProduct(null);
-  };
+  }, []);
 
   const exportCSV = () => {
     const header = buildFileHeader();
@@ -1128,7 +1136,7 @@ export default function Inventario() {
         type="button"
         onClick={() => {
           setEditingProduct(null);
-          setShowModal(true);
+          setShowProductScreen(true);
         }}
         className="absolute bottom-6 right-2 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-transform"
         data-ocid="inventario.open_modal_button"
@@ -1137,12 +1145,24 @@ export default function Inventario() {
         <Plus size={28} strokeWidth={2.5} />
       </button>
 
-      <ProductModal
-        open={showModal}
-        onClose={handleModalClose}
-        editProduct={editingProduct}
-        onSaved={() => forceUpdate((n) => n + 1)}
-      />
+      {showProductScreen && (
+        <div className="absolute inset-0 bg-background z-20 flex flex-col">
+          <ProductFormScreen
+            onClose={() => {
+              setShowProductScreen(false);
+              setEditingProduct(null);
+              handleModalClose();
+            }}
+            editProduct={editingProduct}
+            onSaved={() => {
+              forceUpdate((n) => n + 1);
+              setShowProductScreen(false);
+              setEditingProduct(null);
+              onAddComplete?.();
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

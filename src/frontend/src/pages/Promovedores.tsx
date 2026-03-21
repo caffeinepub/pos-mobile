@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  ArrowLeft,
   FileDown,
   FileUp,
   LayoutGrid,
@@ -34,9 +35,17 @@ import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
 
 interface Promoter {
   id: string;
+  codigo: string;
   name: string;
-  phone: string;
+  reeup: string;
   email: string;
+  phone: string;
+  nit: string;
+  direccion: string;
+  cuentaBancaria: string;
+  icrr: string;
+  provincia: string;
+  pais: string;
 }
 
 const STORAGE_KEY = "pos_promovedores";
@@ -53,6 +62,167 @@ function savePromoters(list: Promoter[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
+// ── Shared form ───────────────────────────────────────────────────────────────
+interface PromoterFormState {
+  codigo: string;
+  name: string;
+  reeup: string;
+  email: string;
+  phone: string;
+  nit: string;
+  direccion: string;
+  cuentaBancaria: string;
+  icrr: string;
+  provincia: string;
+  pais: string;
+}
+
+function emptyForm(): PromoterFormState {
+  return {
+    codigo: "",
+    name: "",
+    reeup: "",
+    email: "",
+    phone: "",
+    nit: "",
+    direccion: "",
+    cuentaBancaria: "",
+    icrr: "",
+    provincia: "",
+    pais: "",
+  };
+}
+
+function PromoterFormFields({
+  form,
+  onChange,
+  prefix,
+}: {
+  form: PromoterFormState;
+  onChange: (f: PromoterFormState) => void;
+  prefix: string;
+}) {
+  const set = (key: keyof PromoterFormState, value: string) => {
+    const updated = { ...form, [key]: value };
+    if (key === "nit") {
+      updated.codigo = value.slice(-5);
+    }
+    onChange(updated);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-codigo`}>Código (auto)</Label>
+        <Input
+          id={`${prefix}-codigo`}
+          value={form.codigo}
+          readOnly
+          className="bg-muted text-muted-foreground cursor-not-allowed"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-name`}>
+          Nombre <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id={`${prefix}-name`}
+          placeholder="Nombre del proveedor..."
+          value={form.name}
+          onChange={(e) => set("name", e.target.value)}
+          data-ocid={`${prefix}.input`}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-reeup`}>Código REEUP</Label>
+        <Input
+          id={`${prefix}-reeup`}
+          placeholder="Código REEUP..."
+          value={form.reeup}
+          onChange={(e) => set("reeup", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-email`}>Correo</Label>
+        <Input
+          id={`${prefix}-email`}
+          type="email"
+          placeholder="proveedor@email.com"
+          value={form.email}
+          onChange={(e) => set("email", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-phone`}>Teléfono</Label>
+        <Input
+          id={`${prefix}-phone`}
+          placeholder="Ej. +53 5 000 0000"
+          value={form.phone}
+          onChange={(e) => set("phone", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-nit`}>
+          NIT <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id={`${prefix}-nit`}
+          placeholder="Número de Identificación Tributaria..."
+          value={form.nit}
+          onChange={(e) => set("nit", e.target.value)}
+          data-ocid={`${prefix}.nit_input`}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-direccion`}>Dirección</Label>
+        <Input
+          id={`${prefix}-direccion`}
+          placeholder="Dirección..."
+          value={form.direccion}
+          onChange={(e) => set("direccion", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-cuenta`}>Cuenta Bancaria</Label>
+        <Input
+          id={`${prefix}-cuenta`}
+          placeholder="Número de cuenta bancaria..."
+          value={form.cuentaBancaria}
+          onChange={(e) => set("cuentaBancaria", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-icrr`}>ICRR</Label>
+        <Input
+          id={`${prefix}-icrr`}
+          placeholder="ICRR..."
+          value={form.icrr}
+          onChange={(e) => set("icrr", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-provincia`}>Provincia</Label>
+        <Input
+          id={`${prefix}-provincia`}
+          placeholder="Provincia..."
+          value={form.provincia}
+          onChange={(e) => set("provincia", e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${prefix}-pais`}>País</Label>
+        <Input
+          id={`${prefix}-pais`}
+          placeholder="País..."
+          value={form.pais}
+          onChange={(e) => set("pais", e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Add Modal ─────────────────────────────────────────────────────────────────
 function AddPromoterModal({
   open,
   onClose,
@@ -62,74 +232,81 @@ function AddPromoterModal({
   onClose: () => void;
   onSaved: (p: Promoter) => void;
 }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [form, setForm] = useState<PromoterFormState>(emptyForm);
 
   const handleSave = () => {
-    if (!name.trim()) {
+    if (!form.name.trim()) {
       toast.error("El nombre del proveedor es obligatorio");
+      return;
+    }
+    if (!form.nit.trim()) {
+      toast.error("El NIT del proveedor es obligatorio");
       return;
     }
     const newPromoter: Promoter = {
       id: Date.now().toString(),
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim(),
+      codigo: form.codigo,
+      name: form.name.trim(),
+      reeup: form.reeup.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      nit: form.nit.trim(),
+      direccion: form.direccion.trim(),
+      cuentaBancaria: form.cuentaBancaria.trim(),
+      icrr: form.icrr.trim(),
+      provincia: form.provincia.trim(),
+      pais: form.pais.trim(),
     };
     onSaved(newPromoter);
     toast.success("Proveedor agregado");
-    setName("");
-    setPhone("");
-    setEmail("");
+    setForm(emptyForm());
     onClose();
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm mx-auto">
-        <DialogHeader>
-          <DialogTitle>Agregar proveedor</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="prom-name">
-              Nombre <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="prom-name"
-              placeholder="Nombre del proveedor..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="prom-phone">Teléfono (opcional)</Label>
-            <Input
-              id="prom-phone"
-              placeholder="Ej. +1 555 0000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="prom-email">Email (opcional)</Label>
-            <Input
-              id="prom-email"
-              placeholder="Ej. proveedor@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <Button className="w-full" onClick={handleSave}>
-            Guardar proveedor
-          </Button>
+    <div
+      className="fixed inset-0 z-50 bg-background flex flex-col"
+      data-ocid="add_prov.dialog"
+    >
+      <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0 bg-background">
+        <button
+          onClick={onClose}
+          className="p-1 rounded hover:bg-muted transition-colors"
+          type="button"
+          aria-label="Volver"
+          data-ocid="add_prov.close_button"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="text-lg font-semibold flex-1 text-center pr-6">
+          Agregar proveedor
+        </h2>
+      </div>
+      <ScrollArea className="flex-1 overflow-auto">
+        <div className="px-5 pb-6 space-y-5 pt-4">
+          <PromoterFormFields
+            form={form}
+            onChange={setForm}
+            prefix="add_prov"
+          />
         </div>
-      </DialogContent>
-    </Dialog>
+      </ScrollArea>
+      <div className="px-4 py-3 border-t shrink-0 bg-background">
+        <Button
+          className="w-full"
+          onClick={handleSave}
+          data-ocid="add_prov.submit_button"
+        >
+          Guardar proveedor
+        </Button>
+      </div>
+    </div>
   );
 }
 
+// ── Edit Modal ────────────────────────────────────────────────────────────────
 function EditPromoterModal({
   promoter,
   onClose,
@@ -139,29 +316,49 @@ function EditPromoterModal({
   onClose: () => void;
   onSaved: (p: Promoter) => void;
 }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [form, setForm] = useState<PromoterFormState>(emptyForm);
 
   useEffect(() => {
     if (promoter) {
-      setName(promoter.name);
-      setPhone(promoter.phone);
-      setEmail(promoter.email);
+      setForm({
+        codigo: promoter.codigo ?? "",
+        name: promoter.name,
+        reeup: promoter.reeup ?? "",
+        email: promoter.email,
+        phone: promoter.phone,
+        nit: promoter.nit ?? "",
+        direccion: promoter.direccion ?? "",
+        cuentaBancaria: promoter.cuentaBancaria ?? "",
+        icrr: promoter.icrr ?? "",
+        provincia: promoter.provincia ?? "",
+        pais: promoter.pais ?? "",
+      });
     }
   }, [promoter]);
 
   const handleUpdate = () => {
     if (!promoter) return;
-    if (!name.trim()) {
+    if (!form.name.trim()) {
       toast.error("El nombre del proveedor es obligatorio");
+      return;
+    }
+    if (!form.nit.trim()) {
+      toast.error("El NIT del proveedor es obligatorio");
       return;
     }
     onSaved({
       ...promoter,
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim(),
+      codigo: form.codigo,
+      name: form.name.trim(),
+      reeup: form.reeup.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      nit: form.nit.trim(),
+      direccion: form.direccion.trim(),
+      cuentaBancaria: form.cuentaBancaria.trim(),
+      icrr: form.icrr.trim(),
+      provincia: form.provincia.trim(),
+      pais: form.pais.trim(),
     });
     toast.success("Proveedor actualizado");
     onClose();
@@ -169,49 +366,26 @@ function EditPromoterModal({
 
   return (
     <Dialog open={promoter !== null} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent className="max-w-sm mx-auto max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Editar proveedor</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-prom-name">
-              Nombre <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="edit-prom-name"
-              placeholder="Nombre del proveedor..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-prom-phone">Teléfono (opcional)</Label>
-            <Input
-              id="edit-prom-phone"
-              placeholder="Ej. +1 555 0000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-prom-email">Email (opcional)</Label>
-            <Input
-              id="edit-prom-email"
-              placeholder="Ej. proveedor@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <Button className="w-full" onClick={handleUpdate}>
-            Actualizar
-          </Button>
+        <div className="flex-1 overflow-hidden">
+          <PromoterFormFields
+            form={form}
+            onChange={setForm}
+            prefix="edit_prov"
+          />
         </div>
+        <Button className="w-full mt-4 shrink-0" onClick={handleUpdate}>
+          Actualizar
+        </Button>
       </DialogContent>
     </Dialog>
   );
 }
 
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function Promovedores() {
   const [promoters, setPromoters] = useState<Promoter[]>(loadPromoters);
   const [showAdd, setShowAdd] = useState(false);
@@ -226,7 +400,8 @@ export default function Promovedores() {
         (p) =>
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.email.toLowerCase().includes(searchTerm.toLowerCase()),
+          p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (p.nit ?? "").toLowerCase().includes(searchTerm.toLowerCase()),
       )
     : promoters;
 
@@ -252,9 +427,10 @@ export default function Promovedores() {
 
   const exportCSV = () => {
     const header = buildFileHeader();
-    const cols = "Nombre,Teléfono,Email";
+    const cols = "Nombre,NIT,Código,Teléfono,Email,Provincia,País";
     const rows = filteredPromoters.map(
-      (p) => `${p.name},${p.phone},${p.email}`,
+      (p) =>
+        `${p.name},${p.nit ?? ""},${p.codigo ?? ""},${p.phone},${p.email},${p.provincia ?? ""},${p.pais ?? ""}`,
     );
     const csv = `${header
       .split("\n")
@@ -274,10 +450,10 @@ export default function Promovedores() {
     const rows = filteredPromoters
       .map(
         (p) =>
-          `<tr><td>${p.name}</td><td>${p.phone}</td><td>${p.email}</td></tr>`,
+          `<tr><td>${p.name}</td><td>${p.nit ?? ""}</td><td>${p.codigo ?? ""}</td><td>${p.phone}</td><td>${p.email}</td><td>${p.provincia ?? ""}</td><td>${p.pais ?? ""}</td></tr>`,
       )
       .join("");
-    const html = `<html><head><title>Proveedores</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Lista de Proveedores</h2><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const html = `<html><head><title>Proveedores</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Lista de Proveedores</h2><table><thead><tr><th>Nombre</th><th>NIT</th><th>Código</th><th>Teléfono</th><th>Email</th><th>Provincia</th><th>País</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
     const win = window.open("", "_blank");
     if (win) {
       win.document.write(html);
@@ -289,7 +465,46 @@ export default function Promovedores() {
   const importCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    toast.info("Importación CSV recibida (funcionalidad próximamente)");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text
+        .split("\n")
+        .filter((l) => l.trim() && !l.startsWith("#"));
+      if (lines.length < 2) {
+        toast.error("Archivo CSV vacío o sin datos");
+        return;
+      }
+      const dataLines = lines.slice(1);
+      let imported = 0;
+      for (const line of dataLines) {
+        const parts = line.split(",").map((p) => p.trim());
+        const [nombre, nit, codigo, telefono, email, provincia, pais] = parts;
+        if (!nombre) continue;
+        const newPromoter: Promoter = {
+          id: crypto.randomUUID(),
+          codigo: codigo ?? nit?.slice(-5) ?? "",
+          name: nombre,
+          reeup: "",
+          email: email ?? "",
+          phone: telefono ?? "",
+          nit: nit ?? "",
+          direccion: "",
+          cuentaBancaria: "",
+          icrr: "",
+          provincia: provincia ?? "",
+          pais: pais ?? "",
+        };
+        setPromoters((prev) => {
+          const updated = [...prev, newPromoter];
+          savePromoters(updated);
+          return updated;
+        });
+        imported++;
+      }
+      toast.success(`${imported} proveedores importados`);
+    };
+    reader.readAsText(file);
     e.target.value = "";
   };
 
@@ -303,14 +518,22 @@ export default function Promovedores() {
           <button
             type="button"
             onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-lg transition-colors ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === "list"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
           >
             <LayoutList size={16} />
           </button>
           <button
             type="button"
             onClick={() => setViewMode("grid")}
-            className={`p-1.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === "grid"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
           >
             <LayoutGrid size={16} />
           </button>
@@ -361,7 +584,10 @@ export default function Promovedores() {
       )}
       <ScrollArea className="h-[calc(100vh-180px)]">
         {promoters.length === 0 ? (
-          <div className="py-16 text-center">
+          <div
+            className="py-16 text-center"
+            data-ocid="promovedores.empty_state"
+          >
             <UserCheck
               size={40}
               className="mx-auto text-muted-foreground/30 mb-3"
@@ -385,7 +611,13 @@ export default function Promovedores() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm">{p.name}</p>
-                      <div className="flex items-center gap-3 mt-1">
+                      {p.nit && (
+                        <p className="text-xs text-muted-foreground">
+                          NIT: {p.nit}
+                          {p.codigo ? ` · Cód: ${p.codigo}` : ""}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-0.5">
                         {p.phone && (
                           <div className="flex items-center gap-1">
                             <Phone
@@ -442,9 +674,14 @@ export default function Promovedores() {
                     <p className="font-semibold text-xs truncate w-full">
                       {p.name}
                     </p>
-                    {p.phone && (
+                    {p.nit && (
                       <p className="text-xs text-muted-foreground truncate w-full">
-                        {p.phone}
+                        NIT: {p.nit}
+                      </p>
+                    )}
+                    {p.codigo && (
+                      <p className="text-xs text-muted-foreground truncate w-full">
+                        Cód: {p.codigo}
                       </p>
                     )}
                     <div className="flex items-center justify-end gap-1 w-full">
@@ -474,6 +711,7 @@ export default function Promovedores() {
       <button
         type="button"
         onClick={() => setShowAdd(true)}
+        data-ocid="proveedores.open_modal_button"
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 active:scale-95 transition-all z-40"
       >
         <Plus size={24} />

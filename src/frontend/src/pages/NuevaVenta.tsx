@@ -15,18 +15,19 @@ import {
   CreditCard,
   Loader2,
   Minus,
+  Package,
   Plus,
   QrCode,
   Search,
   ShoppingCart,
   Trash2,
   User,
+  UserPlus,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Customer, PaymentType, Product } from "../backend.d";
 import {
-  useCreateCustomer,
   useCreatePaymentType,
   useCreateSale,
   useCustomers,
@@ -39,6 +40,34 @@ import { useQRScanner } from "../qr-code/useQRScanner";
 interface CartItem {
   product: Product;
   quantity: number;
+}
+
+function getProductMeta(id: bigint): { image: string | null; unit: string } {
+  try {
+    const raw = localStorage.getItem(`product-meta-${String(id)}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { image: null, unit: "Unidad" };
+}
+
+function ProductThumb({ productId }: { productId: bigint }) {
+  const meta = getProductMeta(productId);
+  if (meta.image) {
+    return (
+      <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-border">
+        <img
+          src={meta.image}
+          alt="producto"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+      <Package size={14} className="text-muted-foreground" />
+    </div>
+  );
 }
 
 function formatPrice(price: bigint): string {
@@ -225,11 +254,14 @@ function ProductPickerModal({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
                   >
-                    <div>
-                      <p className="font-medium text-sm">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Stock: {String(p.stock)} · ${formatPrice(p.price)}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <ProductThumb productId={p.id} />
+                      <div>
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Stock: {String(p.stock)} · ${formatPrice(p.price)}
+                        </p>
+                      </div>
                     </div>
                     <Plus size={16} className="text-teal shrink-0" />
                   </button>
@@ -248,35 +280,19 @@ function CustomerModal({
   onClose,
   onSelect,
   customers,
+  onNavigateToClientes,
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (c: Customer) => void;
   customers: Customer[];
+  onNavigateToClientes: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [newClientName, setNewClientName] = useState("");
-  const [newClientPhone, setNewClientPhone] = useState("");
-  const [newClientEmail, setNewClientEmail] = useState("");
-  const createCustomer = useCreateCustomer();
 
   const filtered = customers.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()),
   );
-
-  const handleAddClient = async () => {
-    const name = newClientName.trim();
-    if (!name) return;
-    await createCustomer.mutateAsync({
-      name,
-      phone: newClientPhone.trim(),
-      email: newClientEmail.trim(),
-    });
-    toast.success("Cliente agregado");
-    setNewClientName("");
-    setNewClientPhone("");
-    setNewClientEmail("");
-  };
 
   return (
     <Dialog
@@ -306,7 +322,7 @@ function CustomerModal({
               data-ocid="customer_modal.search_input"
             />
           </div>
-          <ScrollArea className="h-44">
+          <ScrollArea className="h-52">
             {filtered.length === 0 ? (
               <p
                 className="text-center text-muted-foreground text-sm py-8"
@@ -340,43 +356,19 @@ function CustomerModal({
             )}
           </ScrollArea>
           <Separator />
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Agregar nuevo cliente
-            </Label>
-            <Input
-              placeholder="Nombre del cliente..."
-              value={newClientName}
-              onChange={(e) => setNewClientName(e.target.value)}
-              data-ocid="customer_modal.new_name.input"
-            />
-            <Input
-              placeholder="Teléfono (opcional)..."
-              value={newClientPhone}
-              onChange={(e) => setNewClientPhone(e.target.value)}
-              data-ocid="customer_modal.new_phone.input"
-            />
-            <Input
-              placeholder="Email (opcional)..."
-              value={newClientEmail}
-              onChange={(e) => setNewClientEmail(e.target.value)}
-              data-ocid="customer_modal.new_email.input"
-            />
-            <Button
-              type="button"
-              className="w-full"
-              onClick={handleAddClient}
-              disabled={!newClientName.trim() || createCustomer.isPending}
-              data-ocid="customer_modal.add_client.button"
-            >
-              {createCustomer.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
-              Agregar cliente
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              onClose();
+              onNavigateToClientes();
+            }}
+            data-ocid="customer_modal.go_to_clientes.button"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Agregar clientes
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -491,7 +483,11 @@ function PaymentTypeModal({
   );
 }
 
-export default function NuevaVenta() {
+export default function NuevaVenta({
+  onNavigateToClientes,
+}: {
+  onNavigateToClientes?: () => void;
+}) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null,
@@ -620,6 +616,7 @@ export default function NuevaVenta() {
                     data-ocid={`cart.item.${idx + 1}`}
                     className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0"
                   >
+                    <ProductThumb productId={item.product.id} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
                         {item.product.name}
@@ -818,6 +815,10 @@ export default function NuevaVenta() {
         onClose={() => setShowCustomers(false)}
         onSelect={setSelectedCustomer}
         customers={customers}
+        onNavigateToClientes={() => {
+          setShowCustomers(false);
+          if (onNavigateToClientes) onNavigateToClientes();
+        }}
       />
       <PaymentTypeModal
         open={showPayment}

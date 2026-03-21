@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -7,11 +8,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   ArrowUpToLine,
-  CreditCard,
+  ChevronDown,
+  ChevronRight,
   Minus,
+  Package,
   Plus,
   QrCode,
   Search,
@@ -20,17 +25,50 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
-import { useProducts, useUpdateProduct } from "../hooks/useQueries";
+import {
+  useCreateProduct,
+  useProducts,
+  useUpdateProduct,
+} from "../hooks/useQueries";
 import { useQRScanner } from "../qr-code/useQRScanner";
 import {
   type EntradaMercanciaTipo,
   getTiposEntrada,
   saveEntrada,
+  saveTiposEntrada,
 } from "../utils/entradas";
 
 interface CartItem {
   product: Product;
   quantity: number;
+}
+
+function getProductMeta(id: bigint): { image: string | null; unit: string } {
+  try {
+    const raw = localStorage.getItem(`product-meta-${String(id)}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { image: null, unit: "Unidad" };
+}
+
+function ProductThumb({ productId }: { productId: bigint }) {
+  const meta = getProductMeta(productId);
+  if (meta.image) {
+    return (
+      <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-border">
+        <img
+          src={meta.image}
+          alt="producto"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+      <Package size={14} className="text-muted-foreground" />
+    </div>
+  );
 }
 
 function formatPrice(price: bigint): string {
@@ -133,35 +171,134 @@ function QRScannerModal({
   );
 }
 
+interface MultiSelectItem {
+  product: Product;
+  checked: boolean;
+  qty: number;
+}
+
 function ProductPickerModal({
   open,
   onClose,
-  onAdd,
+  onAddMultiple,
   products,
+  onAddNewProduct,
 }: {
   open: boolean;
   onClose: () => void;
-  onAdd: (p: Product) => void;
+  onAddMultiple: (items: { product: Product; quantity: number }[]) => void;
   products: Product[];
+  onAddNewProduct?: () => void;
 }) {
   const [search, setSearch] = useState("");
+  const [selections, setSelections] = useState<Record<string, MultiSelectItem>>(
+    {},
+  );
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newBarcode, setNewBarcode] = useState("");
+  const [newStock, setNewStock] = useState("0");
+  const [newPrice, setNewPrice] = useState("");
+
+  const createProduct = useCreateProduct();
+
   const filtered = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode.includes(search),
   );
+
+  const toggleProduct = (p: Product) => {
+    const key = String(p.id);
+    setSelections((prev) => {
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: { product: p, checked: true, qty: 1 } };
+    });
+  };
+
+  const setQty = (p: Product, qty: number) => {
+    const key = String(p.id);
+    setSelections((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], qty: Math.max(1, qty) },
+    }));
+  };
+
+  const handleConfirm = () => {
+    const items = Object.values(selections).map((s) => ({
+      product: s.product,
+      quantity: s.qty,
+    }));
+    if (items.length === 0) {
+      toast.error("Selecciona al menos un producto");
+      return;
+    }
+    onAddMultiple(items);
+    resetAndClose();
+  };
+
+  const resetAndClose = () => {
+    setSelections({});
+    setSearch("");
+    setShowNewProduct(false);
+    setNewName("");
+    setNewBarcode("");
+    setNewStock("0");
+    setNewPrice("");
+    onClose();
+  };
+
+  const handleAddNewProduct = async () => {
+    if (!newName.trim()) {
+      toast.error("El nombre del producto es requerido");
+      return;
+    }
+    const priceVal = Number.parseFloat(newPrice);
+    if (!newPrice || Number.isNaN(priceVal) || priceVal <= 0) {
+      toast.error("El precio de venta es requerido");
+      return;
+    }
+    try {
+      const created = await createProduct.mutateAsync({
+        name: newName.trim(),
+        price: BigInt(Math.round(priceVal * 100)),
+        barcode: newBarcode.trim(),
+        stock: BigInt(Number.parseInt(newStock) || 0),
+      });
+      const stockQty = Number.parseInt(newStock) || 0;
+      if (created && typeof created === "object" && "id" in created) {
+        onAddMultiple([
+          {
+            product: created as Product,
+            quantity: stockQty > 0 ? stockQty : 1,
+          },
+        ]);
+      }
+      toast.success(`"${newName.trim()}" agregado al inventario`);
+      resetAndClose();
+    } catch {
+      toast.error("Error al crear el producto");
+    }
+  };
+
+  const selectedCount = Object.keys(selections).length;
+
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        if (!v) onClose();
+        if (!v) resetAndClose();
       }}
     >
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent className="max-w-sm mx-auto max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Agregar producto</DialogTitle>
+          <DialogTitle>Seleccionar productos</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
           <div className="relative">
             <Search
               size={16}
@@ -172,37 +309,150 @@ function ProductPickerModal({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
+              data-ocid="entrada.search_input"
             />
           </div>
-          <ScrollArea className="h-64">
+          <ScrollArea className="h-48">
             {filtered.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm py-8">
                 Sin resultados
               </p>
             ) : (
               <div className="space-y-1">
-                {filtered.map((p) => (
-                  <button
-                    type="button"
-                    key={String(p.id)}
-                    onClick={() => {
-                      onAdd(p);
-                      onClose();
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Stock: {String(p.stock)} · ${formatPrice(p.price)}
-                      </p>
+                {filtered.map((p) => {
+                  const key = String(p.id);
+                  const sel = selections[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <Checkbox
+                        checked={!!sel}
+                        onCheckedChange={() => toggleProduct(p)}
+                        id={`entrada-prod-${key}`}
+                      />
+                      <ProductThumb productId={p.id} />
+                      <label
+                        htmlFor={`entrada-prod-${key}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Stock: {String(p.stock)} · ${formatPrice(p.price)}
+                        </p>
+                      </label>
+                      {sel && (
+                        <Input
+                          type="number"
+                          min={1}
+                          value={sel.qty}
+                          onChange={(e) =>
+                            setQty(p, Number.parseInt(e.target.value) || 1)
+                          }
+                          className="w-16 h-8 text-center text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
                     </div>
-                    <Plus size={16} className="text-teal shrink-0" />
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
+
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-white"
+            data-ocid="entrada.confirm_button"
+          >
+            Agregar seleccionados
+            {selectedCount > 0 && (
+              <Badge className="ml-2 bg-white/20 text-white text-xs">
+                {selectedCount}
+              </Badge>
+            )}
+          </Button>
+
+          <Separator />
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onAddNewProduct) {
+                resetAndClose();
+                onAddNewProduct();
+              } else {
+                setShowNewProduct((v) => !v);
+              }
+            }}
+            className="w-full flex items-center justify-between px-1 py-1 text-sm font-semibold text-emerald-600 hover:text-emerald-500 transition-colors"
+            data-ocid="entrada.open_modal_button"
+          >
+            <span>Nuevo producto (no está en stock)</span>
+            <ChevronRight size={16} />
+          </button>
+
+          {!onAddNewProduct && showNewProduct && (
+            <div className="space-y-3 bg-muted/40 rounded-xl p-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">
+                  Nombre <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  placeholder="Nombre del producto"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  data-ocid="entrada.input"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Código / Barcode</Label>
+                <Input
+                  placeholder="Opcional"
+                  value={newBarcode}
+                  onChange={(e) => setNewBarcode(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Stock inicial</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={newStock}
+                    onChange={(e) => setNewStock(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    Precio de venta <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={handleAddNewProduct}
+                disabled={createProduct.isPending}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white"
+                data-ocid="entrada.primary_button"
+              >
+                {createProduct.isPending
+                  ? "Agregando..."
+                  : "Agregar al inventario"}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -213,13 +463,38 @@ function TipoEntradaModal({
   open,
   onClose,
   onSelect,
-  tipos,
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (t: EntradaMercanciaTipo) => void;
-  tipos: EntradaMercanciaTipo[];
 }) {
+  const [tipos, setTipos] = useState<EntradaMercanciaTipo[]>(() =>
+    getTiposEntrada(),
+  );
+  const [newName, setNewName] = useState("");
+
+  useEffect(() => {
+    if (open) setTipos(getTiposEntrada());
+  }, [open]);
+
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const nuevo: EntradaMercanciaTipo = { id: crypto.randomUUID(), name };
+    const updated = [...tipos, nuevo];
+    setTipos(updated);
+    saveTiposEntrada(updated);
+    setNewName("");
+    toast.success(`"${name}" agregado`);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    const updated = tipos.filter((t) => t.id !== id);
+    setTipos(updated);
+    saveTiposEntrada(updated);
+    toast.success(`"${name}" eliminado`);
+  };
+
   return (
     <Dialog
       open={open}
@@ -227,38 +502,87 @@ function TipoEntradaModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent
+        className="max-w-sm mx-auto"
+        data-ocid="entrada.tipo_dialog"
+      >
         <DialogHeader>
-          <DialogTitle>Tipo de entrada</DialogTitle>
+          <DialogTitle>Tipos de entrada</DialogTitle>
         </DialogHeader>
-        <div className="space-y-1">
-          {tipos.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-6">
-              Sin tipos de entrada configurados
-            </p>
-          ) : (
-            tipos.map((t) => (
-              <button
-                type="button"
-                key={t.id}
-                onClick={() => {
-                  onSelect(t);
-                  onClose();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+        <div className="space-y-4">
+          <ScrollArea className="h-48">
+            {tipos.length === 0 ? (
+              <p
+                className="text-center text-muted-foreground text-sm py-6"
+                data-ocid="entrada.tipo_empty_state"
               >
-                <CreditCard size={15} className="text-emerald-500 shrink-0" />
-                <span className="text-sm font-medium">{t.name}</span>
-              </button>
-            ))
-          )}
+                Sin tipos de entrada configurados
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {tipos.map((t, idx) => (
+                  <div
+                    key={t.id}
+                    data-ocid={`entrada.tipo_item.${idx + 1}`}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted group"
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 flex-1 text-left"
+                      onClick={() => {
+                        onSelect(t);
+                        onClose();
+                      }}
+                    >
+                      <ArrowUpToLine
+                        size={15}
+                        className="text-emerald-500 shrink-0"
+                      />
+                      <span className="text-sm font-medium">{t.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      data-ocid={`entrada.tipo_delete.${idx + 1}`}
+                      onClick={() => handleDelete(t.id, t.name)}
+                      className="p-1 rounded text-destructive opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <Separator />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nuevo tipo de entrada..."
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+              }}
+              data-ocid="entrada.tipo_input"
+            />
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              className="bg-emerald-500 text-white hover:bg-emerald-400 shrink-0"
+              data-ocid="entrada.tipo_submit"
+            >
+              <Plus size={16} />
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-export default function EntradaMercancia() {
+export default function EntradaMercancia({
+  onAddNewProduct,
+}: { onAddNewProduct?: () => void } = {}) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedTipo, setSelectedTipo] = useState<EntradaMercanciaTipo | null>(
     null,
@@ -270,19 +594,26 @@ export default function EntradaMercancia() {
 
   const { data: products = [] } = useProducts();
   const updateProduct = useUpdateProduct();
-  const tipos = getTiposEntrada();
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, quantity = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing)
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantity }
             : item,
         );
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity }];
     });
+  };
+
+  const addMultipleToCart = (
+    items: { product: Product; quantity: number }[],
+  ) => {
+    for (const item of items) {
+      addToCart(item.product, item.quantity);
+    }
   };
 
   const updateQty = (productId: bigint, delta: number) => {
@@ -322,7 +653,6 @@ export default function EntradaMercancia() {
 
     setIsPending(true);
     try {
-      // Increase stock for each product
       for (const item of cart) {
         const newStock = BigInt(Number(item.product.stock) + item.quantity);
         await updateProduct.mutateAsync({
@@ -393,6 +723,7 @@ export default function EntradaMercancia() {
                     data-ocid={`entrada.item.${idx + 1}`}
                     className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0"
                   >
+                    <ProductThumb productId={item.product.id} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
                         {item.product.name}
@@ -475,7 +806,7 @@ export default function EntradaMercancia() {
             className="flex flex-col items-center gap-1 group"
           >
             <div className="w-10 h-10 flex items-center justify-center">
-              <CreditCard
+              <ArrowUpToLine
                 size={22}
                 className={
                   selectedTipo
@@ -527,14 +858,14 @@ export default function EntradaMercancia() {
       <ProductPickerModal
         open={showProducts}
         onClose={() => setShowProducts(false)}
-        onAdd={addToCart}
+        onAddMultiple={addMultipleToCart}
         products={products}
+        onAddNewProduct={onAddNewProduct}
       />
       <TipoEntradaModal
         open={showTipos}
         onClose={() => setShowTipos(false)}
         onSelect={setSelectedTipo}
-        tipos={tipos}
       />
     </div>
   );

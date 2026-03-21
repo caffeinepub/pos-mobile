@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -8,10 +9,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   ArrowDownToLine,
-  CreditCard,
   Minus,
+  Package,
   Plus,
   QrCode,
   Search,
@@ -26,11 +28,40 @@ import {
   type SalidaMercanciaTipo,
   getTiposSalida,
   saveSalida,
+  saveTiposSalida,
 } from "../utils/salidas";
 
 interface CartItem {
   product: Product;
   quantity: number;
+}
+
+function getProductMeta(id: bigint): { image: string | null; unit: string } {
+  try {
+    const raw = localStorage.getItem(`product-meta-${String(id)}`);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { image: null, unit: "Unidad" };
+}
+
+function ProductThumb({ productId }: { productId: bigint }) {
+  const meta = getProductMeta(productId);
+  if (meta.image) {
+    return (
+      <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-border">
+        <img
+          src={meta.image}
+          alt="producto"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+      <Package size={14} className="text-muted-foreground" />
+    </div>
+  );
 }
 
 function formatPrice(price: bigint): string {
@@ -133,33 +164,87 @@ function QRScannerModal({
   );
 }
 
+interface MultiSelectItem {
+  product: Product;
+  checked: boolean;
+  qty: number;
+}
+
 function ProductPickerModal({
   open,
   onClose,
-  onAdd,
+  onAddMultiple,
   products,
 }: {
   open: boolean;
   onClose: () => void;
-  onAdd: (p: Product) => void;
+  onAddMultiple: (items: { product: Product; quantity: number }[]) => void;
   products: Product[];
 }) {
   const [search, setSearch] = useState("");
+  const [selections, setSelections] = useState<Record<string, MultiSelectItem>>(
+    {},
+  );
+
   const filtered = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode.includes(search),
   );
+
+  const toggleProduct = (p: Product) => {
+    const key = String(p.id);
+    setSelections((prev) => {
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: { product: p, checked: true, qty: 1 } };
+    });
+  };
+
+  const setQty = (p: Product, qty: number) => {
+    const key = String(p.id);
+    setSelections((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], qty: Math.max(1, qty) },
+    }));
+  };
+
+  const handleConfirm = () => {
+    const items = Object.values(selections).map((s) => ({
+      product: s.product,
+      quantity: s.qty,
+    }));
+    if (items.length === 0) {
+      toast.error("Selecciona al menos un producto");
+      return;
+    }
+    onAddMultiple(items);
+    setSelections({});
+    setSearch("");
+    onClose();
+  };
+
+  const handleClose = () => {
+    setSelections({});
+    setSearch("");
+    onClose();
+  };
+
+  const selectedCount = Object.keys(selections).length;
+
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        if (!v) onClose();
+        if (!v) handleClose();
       }}
     >
       <DialogContent className="max-w-sm mx-auto">
         <DialogHeader>
-          <DialogTitle>Agregar producto</DialogTitle>
+          <DialogTitle>Seleccionar productos</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="relative">
@@ -172,6 +257,7 @@ function ProductPickerModal({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
+              data-ocid="salida.search_input"
             />
           </div>
           <ScrollArea className="h-64">
@@ -181,28 +267,60 @@ function ProductPickerModal({
               </p>
             ) : (
               <div className="space-y-1">
-                {filtered.map((p) => (
-                  <button
-                    type="button"
-                    key={String(p.id)}
-                    onClick={() => {
-                      onAdd(p);
-                      onClose();
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Stock: {String(p.stock)} · ${formatPrice(p.price)}
-                      </p>
+                {filtered.map((p) => {
+                  const key = String(p.id);
+                  const sel = selections[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <Checkbox
+                        checked={!!sel}
+                        onCheckedChange={() => toggleProduct(p)}
+                        id={`salida-prod-${key}`}
+                      />
+                      <ProductThumb productId={p.id} />
+                      <label
+                        htmlFor={`salida-prod-${key}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Stock: {String(p.stock)} · ${formatPrice(p.price)}
+                        </p>
+                      </label>
+                      {sel && (
+                        <Input
+                          type="number"
+                          min={1}
+                          value={sel.qty}
+                          onChange={(e) =>
+                            setQty(p, Number.parseInt(e.target.value) || 1)
+                          }
+                          className="w-16 h-8 text-center text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
                     </div>
-                    <Plus size={16} className="text-teal shrink-0" />
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            className="w-full bg-orange-500 hover:bg-orange-400 text-white"
+            data-ocid="salida.confirm_button"
+          >
+            Agregar seleccionados
+            {selectedCount > 0 && (
+              <Badge className="ml-2 bg-white/20 text-white text-xs">
+                {selectedCount}
+              </Badge>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -213,13 +331,38 @@ function TipoSalidaModal({
   open,
   onClose,
   onSelect,
-  tipos,
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (t: SalidaMercanciaTipo) => void;
-  tipos: SalidaMercanciaTipo[];
 }) {
+  const [tipos, setTipos] = useState<SalidaMercanciaTipo[]>(() =>
+    getTiposSalida(),
+  );
+  const [newName, setNewName] = useState("");
+
+  useEffect(() => {
+    if (open) setTipos(getTiposSalida());
+  }, [open]);
+
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const nuevo: SalidaMercanciaTipo = { id: crypto.randomUUID(), name };
+    const updated = [...tipos, nuevo];
+    setTipos(updated);
+    saveTiposSalida(updated);
+    setNewName("");
+    toast.success(`"${name}" agregado`);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    const updated = tipos.filter((t) => t.id !== id);
+    setTipos(updated);
+    saveTiposSalida(updated);
+    toast.success(`"${name}" eliminado`);
+  };
+
   return (
     <Dialog
       open={open}
@@ -227,31 +370,78 @@ function TipoSalidaModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent
+        className="max-w-sm mx-auto"
+        data-ocid="salida.tipo_dialog"
+      >
         <DialogHeader>
-          <DialogTitle>Tipo de salida</DialogTitle>
+          <DialogTitle>Tipos de salida</DialogTitle>
         </DialogHeader>
-        <div className="space-y-1">
-          {tipos.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-6">
-              Sin tipos de salida configurados
-            </p>
-          ) : (
-            tipos.map((t) => (
-              <button
-                type="button"
-                key={t.id}
-                onClick={() => {
-                  onSelect(t);
-                  onClose();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+        <div className="space-y-4">
+          <ScrollArea className="h-48">
+            {tipos.length === 0 ? (
+              <p
+                className="text-center text-muted-foreground text-sm py-6"
+                data-ocid="salida.tipo_empty_state"
               >
-                <CreditCard size={15} className="text-orange-500 shrink-0" />
-                <span className="text-sm font-medium">{t.name}</span>
-              </button>
-            ))
-          )}
+                Sin tipos de salida configurados
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {tipos.map((t, idx) => (
+                  <div
+                    key={t.id}
+                    data-ocid={`salida.tipo_item.${idx + 1}`}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted group"
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 flex-1 text-left"
+                      onClick={() => {
+                        onSelect(t);
+                        onClose();
+                      }}
+                    >
+                      <ArrowDownToLine
+                        size={15}
+                        className="text-orange-500 shrink-0"
+                      />
+                      <span className="text-sm font-medium">{t.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      data-ocid={`salida.tipo_delete.${idx + 1}`}
+                      onClick={() => handleDelete(t.id, t.name)}
+                      className="p-1 rounded text-destructive opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <Separator />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nuevo tipo de salida..."
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+              }}
+              data-ocid="salida.tipo_input"
+            />
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              className="bg-orange-500 text-white hover:bg-orange-400 shrink-0"
+              data-ocid="salida.tipo_submit"
+            >
+              <Plus size={16} />
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -270,19 +460,26 @@ export default function SalidaMercancia() {
 
   const { data: products = [] } = useProducts();
   const updateProduct = useUpdateProduct();
-  const tipos = getTiposSalida();
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, quantity = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing)
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantity }
             : item,
         );
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity }];
     });
+  };
+
+  const addMultipleToCart = (
+    items: { product: Product; quantity: number }[],
+  ) => {
+    for (const item of items) {
+      addToCart(item.product, item.quantity);
+    }
   };
 
   const updateQty = (productId: bigint, delta: number) => {
@@ -322,7 +519,6 @@ export default function SalidaMercancia() {
 
     setIsPending(true);
     try {
-      // Reduce stock for each product
       for (const item of cart) {
         const newStock = BigInt(
           Math.max(Number(item.product.stock) - item.quantity, 0),
@@ -390,6 +586,7 @@ export default function SalidaMercancia() {
                     data-ocid={`salida.item.${idx + 1}`}
                     className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0"
                   >
+                    <ProductThumb productId={item.product.id} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
                         {item.product.name}
@@ -472,7 +669,7 @@ export default function SalidaMercancia() {
             className="flex flex-col items-center gap-1 group"
           >
             <div className="w-10 h-10 flex items-center justify-center">
-              <CreditCard
+              <ArrowDownToLine
                 size={22}
                 className={
                   selectedTipo
@@ -524,14 +721,13 @@ export default function SalidaMercancia() {
       <ProductPickerModal
         open={showProducts}
         onClose={() => setShowProducts(false)}
-        onAdd={addToCart}
+        onAddMultiple={addMultipleToCart}
         products={products}
       />
       <TipoSalidaModal
         open={showTipos}
         onClose={() => setShowTipos(false)}
         onSelect={setSelectedTipo}
-        tipos={tipos}
       />
     </div>
   );
