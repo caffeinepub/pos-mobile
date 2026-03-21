@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ArrowDownToLine,
+  ArrowUpToLine,
   BarChart2,
   Info,
   List,
@@ -21,6 +22,7 @@ import { useSeed } from "./hooks/useQueries";
 import AcercaDe from "./pages/AcercaDe";
 import Clientes from "./pages/Clientes";
 import Configuracion from "./pages/Configuracion";
+import EntradaMercancia from "./pages/EntradaMercancia";
 import Inventario from "./pages/Inventario";
 import NuevaVenta from "./pages/NuevaVenta";
 import Promovedores from "./pages/Promovedores";
@@ -33,6 +35,7 @@ const queryClient = new QueryClient();
 type Screen =
   | "nueva-venta"
   | "ventas"
+  | "entrada-mercancia"
   | "salida-mercancia"
   | "inventario"
   | "clientes"
@@ -54,6 +57,12 @@ const SCREENS: {
     section: 1,
   },
   { id: "ventas", label: "Ventas", icon: <List size={18} />, section: 1 },
+  {
+    id: "entrada-mercancia",
+    label: "Entrada de Mercancía",
+    icon: <ArrowUpToLine size={18} />,
+    section: 1,
+  },
   {
     id: "salida-mercancia",
     label: "Salida de Mercancía",
@@ -91,6 +100,7 @@ const SCREENS: {
 const SCREEN_TITLES: Record<Screen, string> = {
   "nueva-venta": "Nueva Venta",
   ventas: "Ventas",
+  "entrada-mercancia": "Entrada de Mercancía",
   "salida-mercancia": "Salida de Mercancía",
   inventario: "Inventario",
   clientes: "Clientes",
@@ -242,6 +252,7 @@ function AppInner() {
             transition={{ duration: 0.18 }}
             className={`absolute inset-0 flex flex-col ${
               activeScreen === "nueva-venta" ||
+              activeScreen === "entrada-mercancia" ||
               activeScreen === "salida-mercancia"
                 ? "overflow-hidden"
                 : "overflow-y-auto"
@@ -260,6 +271,11 @@ function AppInner() {
               </div>
             )}
             {activeScreen === "ventas" && <Ventas />}
+            {activeScreen === "entrada-mercancia" && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <EntradaMercancia />
+              </div>
+            )}
             {activeScreen === "salida-mercancia" && (
               <div className="flex-1 overflow-hidden flex flex-col">
                 <SalidaMercancia />

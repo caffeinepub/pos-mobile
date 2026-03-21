@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ArrowDownToLine,
   ArrowLeft,
+  ArrowUpToLine,
   Building2,
   Camera,
   Check,
@@ -31,6 +32,11 @@ import {
   useUpdatePaymentType,
 } from "../hooks/useQueries";
 import { getBusinessData, saveBusinessData } from "../utils/businessData";
+import {
+  type EntradaMercanciaTipo,
+  getTiposEntrada,
+  saveTiposEntrada,
+} from "../utils/entradas";
 import {
   type SalidaMercanciaTipo,
   getTiposSalida,
@@ -672,33 +678,225 @@ function SalidaMercanciaConfigScreen({
 }
 
 // ---- Main Configuracion Page ----
-export default function Configuracion() {
+// ---- Entrada Mercancia Config Sub-screen ----
+function EntradaMercanciaConfigScreen({
+  onBack: _onBack,
+}: { onBack: () => void }) {
+  const [tipos, setTipos] = useState<EntradaMercanciaTipo[]>(getTiposEntrada);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [listExpanded, setListExpanded] = useState(true);
+
+  const persist = (updated: EntradaMercanciaTipo[]) => {
+    setTipos(updated);
+    saveTiposEntrada(updated);
+  };
+
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const updated = [...tipos, { id: crypto.randomUUID(), name }];
+    persist(updated);
+    setNewName("");
+    setShowAddForm(false);
+    toast.success(`Tipo "${name}" agregado`);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    const name = editName.trim();
+    if (!name) return;
+    persist(tipos.map((t) => (t.id === id ? { ...t, name } : t)));
+    setEditingId(null);
+    setEditName("");
+    toast.success("Tipo actualizado");
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    persist(tipos.filter((t) => t.id !== id));
+    setExpandedId(null);
+    toast.success(`"${name}" eliminado`);
+  };
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 pb-6 pt-4">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <ArrowUpToLine size={16} className="text-emerald-500" />
+            <span className="font-semibold text-sm flex-1">
+              Tipos de entrada
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowAddForm((v) => !v)}
+              className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:bg-emerald-400 transition-colors"
+              aria-label="Agregar tipo de entrada"
+            >
+              <Plus size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setListExpanded((v) => !v)}
+              className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              aria-label="Mostrar/ocultar lista"
+            >
+              <ChevronDown
+                size={15}
+                className={`transition-transform duration-200 ${listExpanded ? "rotate-180" : "rotate-0"}`}
+              />
+            </button>
+          </div>
+          {showAddForm && (
+            <div className="px-4 py-3 border-b border-border flex gap-2 bg-muted/30">
+              <Input
+                placeholder="Nombre del tipo de entrada..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                }}
+                className="flex-1 h-8 text-sm"
+                autoFocus
+                data-ocid="config.entrada.input"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={!newName.trim()}
+                className="px-3 h-8 rounded-lg bg-emerald-500 text-white text-sm hover:bg-emerald-400 disabled:opacity-50 transition-colors"
+              >
+                Agregar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewName("");
+                }}
+                className="px-2 h-8 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {listExpanded &&
+            (tipos.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-muted-foreground text-sm">
+                  Sin tipos de entrada
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {tipos.map((t, idx) => (
+                  <div key={t.id} data-ocid={`config.entrada.item.${idx + 1}`}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedId((prev) => (prev === t.id ? null : t.id))
+                      }
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                    >
+                      <ArrowUpToLine
+                        size={15}
+                        className="text-emerald-500 shrink-0"
+                      />
+                      <span className="text-sm flex-1">{t.name}</span>
+                    </button>
+                    {expandedId === t.id && (
+                      <div className="px-4 pb-3 bg-muted/20">
+                        {editingId === t.id ? (
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveEdit(t.id);
+                              }}
+                              className="flex-1 h-8 text-sm"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEdit(t.id)}
+                              disabled={!editName.trim()}
+                              className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 transition-colors"
+                              aria-label="Guardar"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditName("");
+                              }}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+                              aria-label="Cancelar"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(t.id);
+                                setEditName(t.name);
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
+                            >
+                              <Pencil size={13} />
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(t.id, t.name)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive text-sm hover:bg-destructive/10 transition-colors"
+                            >
+                              <Trash2 size={13} />
+                              <span>Eliminar</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
+// ---- Tipo Pago Config Sub-screen ----
+function TipoPagoConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
   const { data: paymentTypes = [], isLoading } = usePaymentTypes();
   const createPT = useCreatePaymentType();
   const deletePT = useDeletePaymentType();
   const updatePT = useUpdatePaymentType();
-
-  const { theme: currentTheme } = useAppTheme();
-
   const [expandedId, setExpandedId] = useState<bigint | null>(null);
   const [editingId, setEditingId] = useState<bigint | null>(null);
   const [editName, setEditName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [listExpanded, setListExpanded] = useState(true);
-  const [selectedCurrency, setSelectedCurrency] = useState("USD");
 
-  type SubScreen = null | "negocio" | "moneda" | "apariencia" | "salida";
-  const [activeSubScreen, setActiveSubScreen] = useState<SubScreen>(null);
-
-  const toggleExpand = (id: bigint) => {
+  const toggleExpand = (id: bigint) =>
     setExpandedId((prev) => (prev === id ? null : id));
-    setEditingId(null);
-  };
+
   const startEdit = (id: bigint, name: string) => {
+    setExpandedId(id);
     setEditingId(id);
     setEditName(name);
   };
+
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
@@ -722,53 +920,7 @@ export default function Configuracion() {
     toast.success(`Tipo de pago "${name}" agregado`);
   };
 
-  const SUB_TITLES: Record<NonNullable<SubScreen>, string> = {
-    negocio: "Datos del negocio",
-    moneda: "Seleccionar moneda",
-    apariencia: "Apariencia",
-    salida: "Salida de Mercancía",
-  };
-
-  if (activeSubScreen !== null) {
-    return (
-      <div className="flex flex-col flex-1 overflow-hidden h-full">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveSubScreen(null)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-            aria-label="Volver"
-            data-ocid="config.back.button"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h3 className="font-semibold text-base">
-            {SUB_TITLES[activeSubScreen]}
-          </h3>
-        </div>
-        {activeSubScreen === "negocio" && (
-          <DatosNegocioScreen onBack={() => setActiveSubScreen(null)} />
-        )}
-        {activeSubScreen === "moneda" && (
-          <MonedaScreen
-            selectedCode={selectedCurrency}
-            onSelect={setSelectedCurrency}
-            onBack={() => setActiveSubScreen(null)}
-          />
-        )}
-        {activeSubScreen === "apariencia" && (
-          <AparienciaScreen onBack={() => setActiveSubScreen(null)} />
-        )}
-        {activeSubScreen === "salida" && (
-          <SalidaMercanciaConfigScreen
-            onBack={() => setActiveSubScreen(null)}
-          />
-        )}
-      </div>
-    );
-  }
-
-  const renderPaymentList = () => {
+  const renderList = () => {
     if (isLoading)
       return (
         <div className="p-4 space-y-2">
@@ -784,136 +936,85 @@ export default function Configuracion() {
         </div>
       );
     return (
-      <ScrollArea className="max-h-80">
-        <div className="divide-y divide-border">
-          {paymentTypes.map((pt, idx) => (
-            <div key={String(pt.id)} data-ocid={`config.item.${idx + 1}`}>
-              <button
-                type="button"
-                onClick={() => toggleExpand(pt.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
-              >
-                <CreditCard size={15} className="text-teal shrink-0" />
-                <span className="text-sm flex-1">{pt.name}</span>
-              </button>
-              {expandedId === pt.id && (
-                <div className="px-4 pb-3 bg-muted/20">
-                  {editingId === pt.id ? (
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveEdit(pt.id);
-                        }}
-                        className="flex-1 h-8 text-sm"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSaveEdit(pt.id)}
-                        disabled={!editName.trim() || updatePT.isPending}
-                        className="p-1.5 rounded-lg bg-teal text-white hover:bg-teal/80 disabled:opacity-50 transition-colors"
-                        aria-label="Guardar"
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={cancelEdit}
-                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
-                        aria-label="Cancelar"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(pt.id, pt.name)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
-                        aria-label="Editar"
-                      >
-                        <Pencil size={13} />
-                        <span>Editar</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await deletePT.mutateAsync(pt.id);
-                          setExpandedId(null);
-                          toast.success(`"${pt.name}" eliminado`);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive text-sm hover:bg-destructive/10 transition-colors"
-                        aria-label="Eliminar"
-                      >
-                        <Trash2 size={13} />
-                        <span>Eliminar</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+      <div className="divide-y divide-border">
+        {paymentTypes.map((pt, idx) => (
+          <div key={String(pt.id)} data-ocid={`config.item.${idx + 1}`}>
+            <button
+              type="button"
+              onClick={() => toggleExpand(pt.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+            >
+              <CreditCard size={15} className="text-teal shrink-0" />
+              <span className="text-sm flex-1">{pt.name}</span>
+            </button>
+            {expandedId === pt.id && (
+              <div className="px-4 pb-3 bg-muted/20">
+                {editingId === pt.id ? (
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveEdit(pt.id);
+                      }}
+                      className="flex-1 h-8 text-sm"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEdit(pt.id)}
+                      disabled={!editName.trim() || updatePT.isPending}
+                      className="p-1.5 rounded-lg bg-teal text-white hover:bg-teal/80 disabled:opacity-50 transition-colors"
+                      aria-label="Guardar"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+                      aria-label="Cancelar"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(pt.id, pt.name)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
+                      aria-label="Editar"
+                    >
+                      <Pencil size={13} />
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await deletePT.mutateAsync(pt.id);
+                        setExpandedId(null);
+                        toast.success(`"${pt.name}" eliminado`);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive text-sm hover:bg-destructive/10 transition-colors"
+                      aria-label="Eliminar"
+                    >
+                      <Trash2 size={13} />
+                      <span>Eliminar</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     );
   };
 
   return (
     <ScrollArea className="flex-1">
-      <div className="px-4 pb-6 pt-4 space-y-3">
-        {/* Datos del negocio */}
-        <button
-          type="button"
-          onClick={() => setActiveSubScreen("negocio")}
-          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
-          data-ocid="config.negocio.button"
-        >
-          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
-            <Building2 size={18} className="text-teal" />
-          </div>
-          <span className="font-medium text-sm flex-1">Datos del negocio</span>
-          <ChevronRight size={16} className="text-muted-foreground" />
-        </button>
-
-        {/* Moneda */}
-        <button
-          type="button"
-          onClick={() => setActiveSubScreen("moneda")}
-          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
-          data-ocid="config.moneda.button"
-        >
-          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
-            <Coins size={18} className="text-teal" />
-          </div>
-          <span className="font-medium text-sm flex-1">Moneda</span>
-          <span className="text-sm text-muted-foreground mr-2">
-            {selectedCurrency}
-          </span>
-          <ChevronRight size={16} className="text-muted-foreground" />
-        </button>
-
-        {/* Apariencia */}
-        <button
-          type="button"
-          onClick={() => setActiveSubScreen("apariencia")}
-          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
-          data-ocid="config.apariencia.button"
-        >
-          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
-            <Palette size={18} className="text-teal" />
-          </div>
-          <span className="font-medium text-sm flex-1">Apariencia</span>
-          <span className="text-sm text-muted-foreground mr-2">
-            {currentTheme.name}
-          </span>
-          <ChevronRight size={16} className="text-muted-foreground" />
-        </button>
-
-        {/* Tipos de pago */}
+      <div className="px-4 pb-6 pt-4">
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
             <CreditCard size={16} className="text-teal" />
@@ -971,8 +1072,147 @@ export default function Configuracion() {
               </button>
             </div>
           )}
-          {listExpanded && renderPaymentList()}
+          {listExpanded && renderList()}
         </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
+export default function Configuracion() {
+  const { theme: currentTheme } = useAppTheme();
+  const [selectedCurrency, setSelectedCurrency] = useState("USD");
+
+  type SubScreen =
+    | null
+    | "negocio"
+    | "moneda"
+    | "apariencia"
+    | "tipoPago"
+    | "salida"
+    | "entrada";
+  const [activeSubScreen, setActiveSubScreen] = useState<SubScreen>(null);
+
+  const SUB_TITLES: Record<NonNullable<SubScreen>, string> = {
+    negocio: "Datos del negocio",
+    moneda: "Seleccionar moneda",
+    apariencia: "Apariencia",
+    tipoPago: "Tipos de Pago",
+    salida: "Salida de Mercancía",
+    entrada: "Entrada de Mercancía",
+  };
+
+  if (activeSubScreen !== null) {
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden h-full">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveSubScreen(null)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+            aria-label="Volver"
+            data-ocid="config.back.button"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h3 className="font-semibold text-base">
+            {SUB_TITLES[activeSubScreen]}
+          </h3>
+        </div>
+        {activeSubScreen === "negocio" && (
+          <DatosNegocioScreen onBack={() => setActiveSubScreen(null)} />
+        )}
+        {activeSubScreen === "moneda" && (
+          <MonedaScreen
+            selectedCode={selectedCurrency}
+            onSelect={setSelectedCurrency}
+            onBack={() => setActiveSubScreen(null)}
+          />
+        )}
+        {activeSubScreen === "apariencia" && (
+          <AparienciaScreen onBack={() => setActiveSubScreen(null)} />
+        )}
+        {activeSubScreen === "salida" && (
+          <SalidaMercanciaConfigScreen
+            onBack={() => setActiveSubScreen(null)}
+          />
+        )}
+        {activeSubScreen === "tipoPago" && (
+          <TipoPagoConfigScreen onBack={() => setActiveSubScreen(null)} />
+        )}
+        {activeSubScreen === "entrada" && (
+          <EntradaMercanciaConfigScreen
+            onBack={() => setActiveSubScreen(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 pb-6 pt-4 space-y-3">
+        {/* Datos del negocio */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("negocio")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.negocio.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
+            <Building2 size={18} className="text-teal" />
+          </div>
+          <span className="font-medium text-sm flex-1">Datos del negocio</span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Moneda */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("moneda")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.moneda.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
+            <Coins size={18} className="text-teal" />
+          </div>
+          <span className="font-medium text-sm flex-1">Moneda</span>
+          <span className="text-sm text-muted-foreground mr-2">
+            {selectedCurrency}
+          </span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Apariencia */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("apariencia")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.apariencia.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
+            <Palette size={18} className="text-teal" />
+          </div>
+          <span className="font-medium text-sm flex-1">Apariencia</span>
+          <span className="text-sm text-muted-foreground mr-2">
+            {currentTheme.name}
+          </span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Tipos de pago */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("tipoPago")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.tipopago.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
+            <CreditCard size={18} className="text-teal" />
+          </div>
+          <span className="font-medium text-sm flex-1">Tipos de Pago</span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
 
         {/* Salida de Mercancía */}
         <button
@@ -986,6 +1226,22 @@ export default function Configuracion() {
           </div>
           <span className="font-medium text-sm flex-1">
             Salida de Mercancía
+          </span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Entrada de Mercancía */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("entrada")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.entrada.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <ArrowUpToLine size={18} className="text-emerald-500" />
+          </div>
+          <span className="font-medium text-sm flex-1">
+            Entrada de Mercancía
           </span>
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
