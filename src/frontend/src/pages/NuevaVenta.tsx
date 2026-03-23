@@ -51,7 +51,11 @@ interface CartItem {
   quantity: number;
 }
 
-function getProductMeta(id: bigint): { image: string | null; unit: string } {
+function getProductMeta(id: bigint): {
+  image: string | null;
+  unit: string;
+  ubicacionTipo?: string;
+} {
   try {
     const raw = localStorage.getItem(`product-meta-${String(id)}`);
     if (raw) return JSON.parse(raw);
@@ -899,7 +903,14 @@ export default function NuevaVenta({
         open={showProducts}
         onClose={() => setShowProducts(false)}
         onAdd={addToCart}
-        products={products}
+        products={products.filter((p) => {
+          const m = getProductMeta(p.id);
+          return (
+            !m.ubicacionTipo ||
+            m.ubicacionTipo === "puntoVenta" ||
+            m.ubicacionTipo === "none"
+          );
+        })}
       />
       <CustomerModal
         open={showCustomers}

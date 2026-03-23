@@ -21,18 +21,29 @@ import {
   Plus,
   Store,
   Trash2,
+  Warehouse,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCamera } from "../camera/useCamera";
 import { THEMES, useAppTheme } from "../context/ThemeContext";
+import { type Entidad, useEntidades } from "../hooks/useEntidades";
 import {
   useCreatePaymentType,
   useDeletePaymentType,
   usePaymentTypes,
   useUpdatePaymentType,
 } from "../hooks/useQueries";
+import {
+  ALMACEN_CATEGORIAS,
+  type Almacen,
+  type AlmacenCategoria,
+  addAlmacen,
+  deleteAlmacen,
+  getAlmacenes,
+  updateAlmacen,
+} from "../utils/almacenes";
 import { getBusinessData, saveBusinessData } from "../utils/businessData";
 import {
   type EntradaMercanciaTipo,
@@ -234,6 +245,11 @@ function DatosNegocioScreen({ onBack }: { onBack: () => void }) {
   const [telefono, setTelefono] = useState(saved.telefono);
   const [correo, setCorreo] = useState(saved.correo);
   const [direccion, setDireccion] = useState(saved.direccion);
+  const [nit, setNit] = useState(saved.nit ?? "");
+  const [cuentasBancarias, setCuentasBancarias] = useState<string[]>(
+    saved.cuentasBancarias ?? [],
+  );
+  const [nuevaCuenta, setNuevaCuenta] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,14 +259,21 @@ function DatosNegocioScreen({ onBack }: { onBack: () => void }) {
   };
 
   const handleGuardar = () => {
-    saveBusinessData({ nombre, telefono, correo, direccion });
+    saveBusinessData({
+      nombre,
+      telefono,
+      correo,
+      direccion,
+      nit,
+      cuentasBancarias,
+    });
     toast.success("Datos del negocio guardados");
     onBack();
   };
 
   return (
     <>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 h-full">
         <div className="px-4 pb-6 pt-4 space-y-5">
           <div className="flex flex-col items-center gap-3">
             <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-border bg-muted flex items-center justify-center overflow-hidden">
@@ -306,7 +329,17 @@ function DatosNegocioScreen({ onBack }: { onBack: () => void }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="nombrePunto">Nombre del Punto</Label>
+            <Label htmlFor="nitNegocio">NIT del negocio</Label>
+            <Input
+              id="nitNegocio"
+              placeholder="Ej. 123456789"
+              value={nit}
+              onChange={(e) => setNit(e.target.value)}
+              data-ocid="config.negocio.nit.input"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="nombrePunto">Nombre del Negocio</Label>
             <Input
               id="nombrePunto"
               placeholder="Ej. Tienda El Sol"
@@ -346,6 +379,57 @@ function DatosNegocioScreen({ onBack }: { onBack: () => void }) {
               onChange={(e) => setDireccion(e.target.value)}
               data-ocid="config.negocio.direccion.input"
             />
+          </div>
+          {/* Cuentas Bancarias */}
+          <div className="space-y-2">
+            <Label>Cuentas Bancarias</Label>
+            {cuentasBancarias.length > 0 && (
+              <div className="space-y-1.5">
+                {cuentasBancarias.map((cuenta, idx) => (
+                  <div
+                    key={`cuenta-${idx}-${cuenta}`}
+                    className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2"
+                  >
+                    <span className="text-sm flex-1 break-all">{cuenta}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCuentasBancarias(
+                          cuentasBancarias.filter((_, i) => i !== idx),
+                        )
+                      }
+                      className="text-destructive hover:text-destructive/80 shrink-0"
+                      data-ocid="config.negocio.cuenta.remove_button"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Número de cuenta bancaria"
+                value={nuevaCuenta}
+                onChange={(e) => setNuevaCuenta(e.target.value)}
+                data-ocid="config.negocio.cuenta.input"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const trimmed = nuevaCuenta.trim();
+                  if (trimmed) {
+                    setCuentasBancarias([...cuentasBancarias, trimmed]);
+                    setNuevaCuenta("");
+                  }
+                }}
+                data-ocid="config.negocio.cuenta.add_button"
+              >
+                <Plus size={14} />
+              </Button>
+            </div>
           </div>
           <Button
             className="w-full h-12 text-base font-semibold mt-2"
@@ -1188,6 +1272,333 @@ function TipoPagoConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
   );
 }
 
+// ---- Almacenes Config Sub-screen ----
+function AlmacenesConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
+  const [almacenes, setAlmacenes] = useState<Almacen[]>(getAlmacenes);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDescripcion, setEditDescripcion] = useState("");
+  const [editResponsable, setEditResponsable] = useState("");
+  const [editCategorias, setEditCategorias] = useState<Set<AlmacenCategoria>>(
+    new Set(),
+  );
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newDescripcion, setNewDescripcion] = useState("");
+  const [newResponsable, setNewResponsable] = useState("");
+  const [newCategorias, setNewCategorias] = useState<Set<AlmacenCategoria>>(
+    new Set(),
+  );
+  const [listExpanded, setListExpanded] = useState(true);
+
+  const reload = () => setAlmacenes(getAlmacenes());
+
+  const handleAdd = () => {
+    const desc = newDescripcion.trim();
+    if (!desc) {
+      toast.error("La descripción es obligatoria");
+      return;
+    }
+    if (newCategorias.size === 0) {
+      toast.error("Selecciona al menos una categoría");
+      return;
+    }
+    addAlmacen({
+      descripcion: desc,
+      responsable: newResponsable.trim(),
+      categorias: Array.from(newCategorias),
+    });
+    reload();
+    setNewDescripcion("");
+    setNewResponsable("");
+    setNewCategorias(new Set());
+    setShowAddForm(false);
+    toast.success(`Almacén "${desc}" agregado`);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    const desc = editDescripcion.trim();
+    if (!desc) {
+      toast.error("La descripción es obligatoria");
+      return;
+    }
+    if (editCategorias.size === 0) {
+      toast.error("Selecciona al menos una categoría");
+      return;
+    }
+    updateAlmacen(id, {
+      descripcion: desc,
+      responsable: editResponsable.trim(),
+      categorias: Array.from(editCategorias),
+    });
+    reload();
+    setEditingId(null);
+    toast.success("Almacén actualizado");
+  };
+
+  const handleDelete = (id: string, desc: string) => {
+    deleteAlmacen(id);
+    reload();
+    setExpandedId(null);
+    toast.success(`"${desc}" eliminado`);
+  };
+
+  const startEdit = (a: Almacen) => {
+    setEditingId(a.id);
+    setEditDescripcion(a.descripcion);
+    setEditResponsable(a.responsable);
+    setEditCategorias(new Set(a.categorias));
+  };
+
+  const toggleNewCat = (cat: AlmacenCategoria) => {
+    setNewCategorias((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
+  const toggleEditCat = (cat: AlmacenCategoria) => {
+    setEditCategorias((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 pb-6 pt-4">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <Warehouse size={16} className="text-sky-500" />
+            <span className="font-semibold text-sm flex-1">Almacenes</span>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddForm((v) => !v);
+                setNewDescripcion("");
+                setNewResponsable("");
+                setNewCategorias(new Set());
+              }}
+              className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              aria-label="Agregar almacén"
+              data-ocid="config.almacenes.add_button"
+            >
+              <Plus size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setListExpanded((v) => !v)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <ChevronDown
+                size={15}
+                className={`transition-transform ${listExpanded ? "" : "-rotate-90"}`}
+              />
+            </button>
+          </div>
+
+          {showAddForm && (
+            <div className="px-4 py-3 border-b border-border bg-muted/20 space-y-2.5">
+              <Input
+                placeholder="Descripción *"
+                value={newDescripcion}
+                onChange={(e) => setNewDescripcion(e.target.value)}
+                className="h-8 text-sm"
+                data-ocid="config.almacenes.input"
+              />
+              <Input
+                placeholder="Responsable"
+                value={newResponsable}
+                onChange={(e) => setNewResponsable(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground font-medium">
+                  Categorías *
+                </p>
+                {ALMACEN_CATEGORIAS.map((cat) => (
+                  <label
+                    key={cat}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={newCategorias.has(cat)}
+                      onChange={() => toggleNewCat(cat)}
+                      className="rounded border-border"
+                    />
+                    <span className="text-sm">{cat}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  className="flex-1 h-8 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                  data-ocid="config.almacenes.submit_button"
+                >
+                  Agregar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewDescripcion("");
+                    setNewResponsable("");
+                    setNewCategorias(new Set());
+                  }}
+                  className="px-2 h-8 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {listExpanded && (
+            <div>
+              {almacenes.length === 0 && (
+                <p
+                  className="text-sm text-muted-foreground text-center py-6"
+                  data-ocid="config.almacenes.empty_state"
+                >
+                  No hay almacenes. Usa el botón + para agregar.
+                </p>
+              )}
+              {almacenes.map((a, idx) => (
+                <div
+                  key={a.id}
+                  data-ocid={`config.almacenes.item.${idx + 1}`}
+                  className="border-b border-border last:border-b-0"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedId(expandedId === a.id ? null : a.id)
+                    }
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left hover:bg-muted/30 transition-colors"
+                  >
+                    <span className="text-xs font-mono bg-muted rounded px-1.5 py-0.5 text-muted-foreground shrink-0">
+                      #{a.numero}
+                    </span>
+                    <span className="flex-1 font-medium truncate">
+                      {a.descripcion}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={`text-muted-foreground transition-transform shrink-0 ${expandedId === a.id ? "" : "-rotate-90"}`}
+                    />
+                  </button>
+
+                  {expandedId === a.id && (
+                    <div className="px-4 pb-3 space-y-2.5 bg-muted/10">
+                      {editingId === a.id ? (
+                        <>
+                          <Input
+                            value={editDescripcion}
+                            onChange={(e) => setEditDescripcion(e.target.value)}
+                            placeholder="Descripción *"
+                            className="h-8 text-sm"
+                          />
+                          <Input
+                            value={editResponsable}
+                            onChange={(e) => setEditResponsable(e.target.value)}
+                            placeholder="Responsable"
+                            className="h-8 text-sm"
+                          />
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-muted-foreground font-medium">
+                              Categorías *
+                            </p>
+                            {ALMACEN_CATEGORIAS.map((cat) => (
+                              <label
+                                key={cat}
+                                className="flex items-center gap-2 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={editCategorias.has(cat)}
+                                  onChange={() => toggleEditCat(cat)}
+                                  className="rounded border-border"
+                                />
+                                <span className="text-sm">{cat}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEdit(a.id)}
+                              className="flex-1 h-8 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                              data-ocid={`config.almacenes.save_button.${idx + 1}`}
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="px-2 h-8 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {a.responsable && (
+                            <p className="text-xs text-muted-foreground">
+                              Responsable:{" "}
+                              <span className="text-foreground">
+                                {a.responsable}
+                              </span>
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {a.categorias.map((cat) => (
+                              <span
+                                key={cat}
+                                className="text-xs bg-sky-100 text-sky-700 rounded-full px-2 py-0.5"
+                              >
+                                {cat}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(a)}
+                              className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
+                              data-ocid={`config.almacenes.edit_button.${idx + 1}`}
+                            >
+                              <Pencil size={13} /> Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(a.id, a.descripcion)}
+                              className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-destructive/30 text-destructive text-sm hover:bg-destructive/10 transition-colors"
+                              data-ocid={`config.almacenes.delete_button.${idx + 1}`}
+                            >
+                              <Trash2 size={13} /> Eliminar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
 // ---- Puntos de Venta Config Sub-screen ----
 function PuntosVentaConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
   const [puntos, setPuntos] = useState<PuntoVenta[]>(getPuntosVenta);
@@ -1386,6 +1797,220 @@ function PuntosVentaConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
   );
 }
 
+// ── Entidades Config Screen ──────────────────────────────────────────────────
+function EntidadesConfigScreen(_props: { onBack: () => void }) {
+  const [enabled, setEnabledState] = useState(
+    () => localStorage.getItem("pos_entidades_enabled") === "true",
+  );
+  const [entities, setEntitiesState] = useState<Entidad[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("pos_entidades") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { setEnabled, setEntities, clearEntities } = useEntidades();
+
+  const handleToggle = (val: boolean) => {
+    setEnabledState(val);
+    setEnabled(val);
+  };
+
+  const loadXlsx = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const w = window as Window & { XLSX?: unknown };
+      if (w.XLSX) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+      script.onload = () => resolve();
+      script.onerror = () =>
+        reject(new Error("Error al cargar librería de Excel"));
+      document.head.appendChild(script);
+    });
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      await loadXlsx();
+      const XLSX = (
+        window as Window & {
+          XLSX?: {
+            read: (
+              data: ArrayBuffer,
+              opts: { type: string },
+            ) => { Sheets: Record<string, unknown>; SheetNames: string[] };
+            utils: {
+              sheet_to_json: (sheet: unknown, opts?: object) => unknown[];
+            };
+          };
+        }
+      ).XLSX;
+      if (!XLSX) throw new Error("Librería XLSX no disponible");
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const sheetName = wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<
+        string,
+        unknown
+      >[];
+      const parsed: Entidad[] = rows
+        .map((r) => ({
+          CODIGO: String(r.CODIGO ?? r.codigo ?? ""),
+          DESC: String(r.DESC ?? r.DESCRIPCION ?? r.desc ?? ""),
+          DIREC: String(r.DIREC ?? r.DIRECCION ?? r.direc ?? ""),
+          SIGLAS: String(r.SIGLAS ?? r.siglas ?? ""),
+          DPA: String(r.DPA ?? r.dpa ?? ""),
+          NAE: String(r.NAE ?? r.nae ?? ""),
+          DESCRIPCION_NAE: String(
+            r["DESCRIPCION NAE"] ?? r.DESCRIPCION_NAE ?? "",
+          ),
+          CNAE: String(r.CNAE ?? r.cnae ?? ""),
+          DESCRIPCION_CNAE: String(
+            r["DESCRIPCION CNAE"] ?? r.DESCRIPCION_CNAE ?? "",
+          ),
+          FORG: String(r.FORG ?? r.forg ?? ""),
+          DESFO: String(r.DESFO ?? r.desfo ?? ""),
+          SUBORD: String(r.SUBORD ?? r.subord ?? ""),
+        }))
+        .filter((e) => e.CODIGO || e.DESC);
+      setEntitiesState(parsed);
+      setEntities(parsed);
+      toast.success(`${parsed.length} entidades importadas correctamente`);
+    } catch (err) {
+      toast.error(
+        `Error al importar: ${err instanceof Error ? err.message : "Error desconocido"}`,
+      );
+    } finally {
+      setImporting(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleClear = () => {
+    if (!confirm("¿Limpiar todas las entidades cargadas?")) return;
+    setEntitiesState([]);
+    clearEntities();
+    toast.success("Entidades eliminadas");
+  };
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 py-4 space-y-4">
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div className="flex-1 mr-3">
+            <p className="font-medium text-sm">Habilitar módulo de Entidades</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Permite buscar entidades al registrar clientes o proveedores
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggle(!enabled)}
+            data-ocid="config.entidades.toggle"
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? "bg-primary" : "bg-muted"}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
+
+        {enabled && (
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Importa un listado de entidades desde un archivo Excel
+              (.xlsx/.xls) con las columnas:
+              <br />
+              <span className="font-mono text-xs">
+                CODIGO | DESC | DIREC | SIGLAS | DPA | NAE | DESCRIPCION NAE |
+                CNAE | DESCRIPCION CNAE | FORG | DESFO | SUBORD
+              </span>
+            </p>
+            <Button
+              className="w-full"
+              onClick={() => fileRef.current?.click()}
+              disabled={importing}
+              data-ocid="config.entidades.upload_button"
+            >
+              {importing ? (
+                <Loader2 size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Building2 size={16} className="mr-2" />
+              )}
+              {importing ? "Importando..." : "Importar Excel"}
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImport}
+            />
+            {entities.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">
+                    {entities.length} entidades cargadas
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="text-xs text-destructive hover:underline"
+                    data-ocid="config.entidades.delete_button"
+                  >
+                    Limpiar
+                  </button>
+                </div>
+                <ScrollArea className="h-60 border border-border rounded-xl">
+                  <div className="p-2 space-y-1">
+                    {entities.slice(0, 200).map((ent, idx) => (
+                      <div
+                        key={ent.CODIGO || String(idx)}
+                        className="px-3 py-2 rounded-lg bg-muted/40 text-sm"
+                        data-ocid={`config.entidades.item.${idx + 1}`}
+                      >
+                        <span className="font-mono text-xs text-muted-foreground mr-2">
+                          {ent.CODIGO}
+                        </span>
+                        <span>{ent.DESC}</span>
+                      </div>
+                    ))}
+                    {entities.length > 200 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        ... y {entities.length - 200} más
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+            {entities.length === 0 && (
+              <div
+                className="py-6 text-center"
+                data-ocid="config.entidades.empty_state"
+              >
+                <p className="text-sm text-muted-foreground">
+                  Sin entidades cargadas
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </ScrollArea>
+  );
+}
+
 export default function Configuracion() {
   const { theme: currentTheme } = useAppTheme();
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
@@ -1399,7 +2024,9 @@ export default function Configuracion() {
     | "salida"
     | "entrada"
     | "produccion"
-    | "puntosVenta";
+    | "puntosVenta"
+    | "almacenes"
+    | "entidades";
   const [activeSubScreen, setActiveSubScreen] = useState<SubScreen>(null);
 
   const SUB_TITLES: Record<NonNullable<SubScreen>, string> = {
@@ -1411,6 +2038,8 @@ export default function Configuracion() {
     entrada: "Entrada de Mercancía",
     produccion: "Configuración de Producción",
     puntosVenta: "Puntos de Venta",
+    almacenes: "Almacenes",
+    entidades: "Entidades",
   };
 
   if (activeSubScreen !== null) {
@@ -1461,6 +2090,12 @@ export default function Configuracion() {
         )}
         {activeSubScreen === "puntosVenta" && (
           <PuntosVentaConfigScreen onBack={() => setActiveSubScreen(null)} />
+        )}
+        {activeSubScreen === "almacenes" && (
+          <AlmacenesConfigScreen onBack={() => setActiveSubScreen(null)} />
+        )}
+        {activeSubScreen === "entidades" && (
+          <EntidadesConfigScreen onBack={() => setActiveSubScreen(null)} />
         )}
       </div>
     );
@@ -1588,6 +2223,34 @@ export default function Configuracion() {
             <Store size={18} className="text-teal" />
           </div>
           <span className="font-medium text-sm flex-1">Puntos de Venta</span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Almacenes */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("almacenes")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.almacenes.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
+            <Warehouse size={18} className="text-sky-500" />
+          </div>
+          <span className="font-medium text-sm flex-1">Almacenes</span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Entidades */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("entidades")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.entidades.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+            <Building2 size={18} className="text-violet-500" />
+          </div>
+          <span className="font-medium text-sm flex-1">Entidades</span>
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
 

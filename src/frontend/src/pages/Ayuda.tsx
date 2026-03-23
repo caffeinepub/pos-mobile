@@ -15,6 +15,12 @@ const HELP_SECTIONS = [
       "Muestra el historial de ventas realizadas. Cada venta indica cliente, tipo de pago, fecha y total. Toca una venta para ver el detalle con los productos. Usa el menú de tres puntos (⋮) para buscar, filtrar por fecha, monto o cliente, y exportar en PDF o CSV. Al eliminar una venta, los productos regresan al inventario automáticamente y se genera un reporte de productos restituidos.",
   },
   {
+    id: "cerrar-dia",
+    title: "Cerrar Día",
+    content:
+      "El botón 'Cerrar Día' en el menú lateral permite cerrar el día laboral actual. Al confirmarlo, se da por terminadas todas las ventas, entradas y salidas de mercancía del día. La fecha de trabajo avanza automáticamente. Los registros no se eliminan: puedes consultarlos en Reportes filtrando por fecha.",
+  },
+  {
     id: "entrada-mercancia",
     title: "Entrada de Mercancía",
     content:
@@ -54,7 +60,7 @@ const HELP_SECTIONS = [
     id: "configuracion",
     title: "Configuración",
     content:
-      "Permite personalizar la aplicación en seis apartados:\n\n• Datos del negocio: nombre, teléfono, correo, dirección e imagen del negocio.\n• Moneda: selección entre más de 90 monedas del mundo con buscador.\n• Apariencia: seis temas de color disponibles (Océano, Atardecer, Bosque, Violeta, Rojo Pasión, Cielo).\n• Tipo de Pago: agrega, edita y elimina los tipos de pago disponibles en las ventas.\n• Puntos de Venta: agrega, edita y elimina los puntos de venta donde se realizan las ventas; el punto queda registrado en cada venta.\n• Salida de Mercancía: configura los tipos de salida (Merma, Consumo interno, Donación, etc.).\n• Entrada de Mercancía: configura los tipos de entrada (IR, Transferencia, etc.).\n• Producción: configura los tipos de merma usados en el módulo de Producción (Evaporación, Desperdicio, etc.).",
+      "Permite personalizar la aplicación en los siguientes apartados:\n\n• Datos del negocio: nombre, teléfono, correo, dirección, NIT del negocio, cuentas bancarias (puedes agregar una o más) e imagen del negocio.\n• Moneda: selección entre más de 90 monedas del mundo con buscador.\n• Apariencia: seis temas de color disponibles (Océano, Atardecer, Bosque, Violeta, Rojo Pasión, Cielo).\n• Tipo de Pago: agrega, edita y elimina los tipos de pago disponibles en las ventas.\n• Puntos de Venta: agrega, edita y elimina los puntos de venta donde se realizan las ventas; el punto queda registrado en cada venta.\n• Salida de Mercancía: configura los tipos de salida (Merma, Consumo interno, Donación, etc.).\n• Entrada de Mercancía: configura los tipos de entrada (IR, Transferencia, etc.).\n• Producción: configura los tipos de merma usados en el módulo de Producción (Evaporación, Desperdicio, etc.).\n• Almacenes: crea y gestiona almacenes con número, descripción, responsable y categorías.",
   },
   {
     id: "contactar",
@@ -69,6 +75,30 @@ const HELP_SECTIONS = [
       "El módulo de Producción permite gestionar el proceso de fabricación desde los insumos hasta los productos terminados.\n\n• Insumos: registra las materias primas disponibles (nombre, código, cantidad, unidad, costo unitario). Puedes rebajar stock por merma indicando el tipo (Evaporación, Desperdicio, etc.) y la cantidad. El historial de movimientos se muestra al expandir cada insumo.\n\n• Fichas de Elaboración: define recetas con los insumos necesarios por lote, el rendimiento (unidades producidas) y las cantidades de cada insumo. El sistema calcula automáticamente el costo total del lote y el costo por unidad.\n\n• Producción (Ordenes): crea órdenes de producción seleccionando una ficha y el número de lotes. El sistema verifica si hay insumos suficientes. Al iniciar la orden, los insumos se descuentan. Al completarla, se crea un registro en Productos Terminados. También puedes registrar mermas durante el proceso.\n\n• Productos Terminados: muestra los productos listos con su cantidad disponible y costo por unidad. Usa Transferir a Inventario para mover unidades al inventario de ventas.\n\n• Configuración: en Configuración > Producción puedes administrar los tipos de merma disponibles.",
   },
   {
+    id: "almacenes",
+    title: "Almacenes",
+    content:
+      "El módulo de Almacenes permite organizar el inventario por ubicaciones físicas. Cada almacén tiene un número asignado automáticamente, una descripción, un responsable y una o varias categorías (Insumos, Mercancía Para la Venta, Producción terminada, Consignación). Para crear o modificar almacenes, ve a Configuración y selecciona la opción Almacenes.",
+  },
+  {
+    id: "facturas",
+    title: "Facturas",
+    content:
+      "El módulo de Facturas permite emitir facturas a clientes con todos los requisitos legales.\n\n• Cómo crear una factura: toca el botón '+' flotante para iniciar el asistente de 3 pasos.\n• Paso 1 - Cliente: elige 'Buscar cliente' para seleccionar uno de la lista de Clientes (buscando por nombre o NIT), o 'Agregar manual' para ingresar los datos directamente. El NIT es OBLIGATORIO; no se puede emitir la factura sin él.\n• Paso 2 - Productos: busca productos del inventario por nombre o código y agrégalos. Ajusta la cantidad con los botones + y -.\n• Paso 3 - Resumen: revisa todos los datos, selecciona la fecha (por defecto hoy, se pueden usar fechas anteriores), ajusta el porcentaje de impuesto si aplica, y pulsa 'Emitir Factura'.\n• Ver detalle: toca cualquier factura de la lista para ver su detalle completo. Desde ahí puedes exportarla como PDF (impresión).\n• El número de factura se genera automáticamente (FAC-0001, FAC-0002, etc.) y es secuencial.\n• Las facturas se almacenan localmente y se pueden eliminar desde el menú de tres puntos.",
+  },
+  {
+    id: "empleados",
+    title: "Empleados",
+    content:
+      "El módulo de Empleados permite gestionar todo el ciclo de recursos humanos de tu negocio.\n\n• Registro de empleados: pulsa el botón '+' para agregar un empleado. Los campos obligatorios son Nombre, Cargo y Salario Base mensual. También puedes registrar CI, categoría (Dirigente, Técnico, Administrativo, Servicio, Obrero), escala salarial, fecha de ingreso, teléfono, correo y dirección. El código se genera automáticamente (EMP-0001, EMP-0002...).\n\n• Días trabajados: en el detalle de cada empleado, pestaña 'Días', selecciona el mes y año, ingresa los días laborables (por defecto 23), días efectivamente trabajados, días no laborados, vacaciones y licencias. Guarda el registro para que el cálculo de nómina sea preciso.\n\n• Nómina: en la pestaña 'Nómina', el sistema calcula automáticamente:\n  - Salario devengado = (Salario base / Días laborables) × Días trabajados\n  - Descuento Seguridad Social: 5% del devengado\n  - Descuento Impuesto: escala progresiva (0% hasta 2500, 5% de 2501 a 3000, 10% por encima)\n  - Bonificaciones y otros descuentos: editables\n  - Salario Neto = Devengado − Descuentos + Bonificaciones\n  Pulsa 'Generar Nómina' para guardar el registro del mes.\n\n• Pagos: en la pestaña 'Pagos' puedes ver todas las nóminas generadas con su estado (Pendiente / Pagado). Pulsa 'Marcar pagado' para registrar la fecha y método de pago (Efectivo, Transferencia, Cheque, Otro). Se muestran los totales pagados y pendientes.\n\n• Nueva Nómina masiva: desde el menú (⋮) de la pantalla principal, 'Nueva Nómina' genera en un solo paso las nóminas de todos los empleados activos para el mes seleccionado, sin duplicar registros existentes. También permite exportar la nómina completa como PDF.\n\n• Exportar: el menú (⋮) permite exportar el listado de empleados como CSV o PDF con datos completos.",
+  },
+  {
+    id: "entidades",
+    title: "Entidades",
+    content:
+      "El módulo de Entidades permite cargar un listado de organizaciones o empresas desde Excel, para agilizar el registro de Clientes y Proveedores.\n\nConfiguración:\n• Ve a Configuración → Entidades.\n• Activa el interruptor 'Habilitar módulo de Entidades'.\n• Toca 'Importar Excel' y selecciona tu archivo (.xlsx o .xls) con la siguiente estructura de columnas: CODIGO | DESC | DIREC | SIGLAS | DPA | NAE | DESCRIPCION NAE | CNAE | DESCRIPCION CNAE | FORG | DESFO | SUBORD.\n• Una vez importadas, se muestra el conteo y una vista previa del listado.\n• Para eliminar las entidades cargadas, toca 'Limpiar'.\n\nUso en Clientes y Proveedores:\n• Cuando el módulo está habilitado y hay entidades cargadas, al agregar o editar un cliente/proveedor aparece un campo 'Buscar entidad' en la parte superior del formulario.\n• Escribe el código o nombre de la entidad; al seleccionar una, se auto-rellenan los campos: Nombre (DESC), Código (últimos 5 del CODIGO), REEUP (SIGLAS), y Dirección (DIREC).\n• Puedes editar manualmente cualquier campo después del auto-relleno.",
+  },
+  {
     id: "acerca-de",
     title: "Acerca de",
     content:
@@ -78,15 +108,13 @@ const HELP_SECTIONS = [
 
 function HelpItem({ title, content }: { title: string; content: string }) {
   const [open, setOpen] = useState(false);
-  const lines = content.split("\n").filter((l) => l.trim() !== "");
-
+  const lines = content.split("\n").filter(Boolean);
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-gray-100">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-gray-50 transition-colors"
-        aria-expanded={open}
       >
         <span className="font-medium text-sm text-foreground">{title}</span>
         {open ? (

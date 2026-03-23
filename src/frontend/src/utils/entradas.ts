@@ -18,6 +18,9 @@ export interface EntradaMercancia {
   items: EntradaItem[];
   tipoEntradaId: string;
   tipoEntradaNombre: string;
+  destinoTipo?: "almacen" | "puntoVenta" | "produccion";
+  destinoId?: string;
+  destinoNombre?: string;
 }
 
 const ENTRADAS_KEY = "pos_entradas";

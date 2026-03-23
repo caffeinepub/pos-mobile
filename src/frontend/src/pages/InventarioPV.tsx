@@ -341,7 +341,7 @@ function AddUnitInline({
         size="icon"
         className="h-10 w-10 shrink-0"
         onClick={() => setOpen(true)}
-        data-ocid="inventario.unit.button"
+        data-ocid="inventariopv.unit.button"
       >
         <Plus size={16} />
       </Button>
@@ -357,14 +357,14 @@ function AddUnitInline({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
         autoFocus
-        data-ocid="inventario.unit.input"
+        data-ocid="inventariopv.unit.input"
       />
       <Button
         type="button"
         size="sm"
         className="h-10 px-2 text-xs"
         onClick={handleConfirm}
-        data-ocid="inventario.unit.save_button"
+        data-ocid="inventariopv.unit.save_button"
       >
         OK
       </Button>
@@ -374,7 +374,7 @@ function AddUnitInline({
         size="sm"
         className="h-10 px-2 text-xs"
         onClick={() => setOpen(false)}
-        data-ocid="inventario.unit.cancel_button"
+        data-ocid="inventariopv.unit.cancel_button"
       >
         ✕
       </Button>
@@ -382,7 +382,7 @@ function AddUnitInline({
   );
 }
 
-// ---------- Product Modal (Add or Edit) ----------
+// ---------- Product Form Screen ----------
 function ProductFormScreen({
   onClose,
   editProduct,
@@ -415,7 +415,6 @@ function ProductFormScreen({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Populate fields when editing
   // biome-ignore lint/correctness/useExhaustiveDependencies: editProduct used intentionally
   useEffect(() => {
     if (editProduct) {
@@ -424,7 +423,6 @@ function ProductFormScreen({
       setCantidad(Number(editProduct.stock));
       setPrecioVenta(formatPrice(editProduct.price));
       setPrecioCosto("");
-      // Load existing meta (image + unit + ubicacion)
       const meta = getProductMeta(editProduct.id);
       setImagePreview(meta.image);
       const savedUnit = meta.unit || "Unidad";
@@ -496,7 +494,6 @@ function ProductFormScreen({
     }
     const stockFinal = cantidad;
     try {
-      // Convert image to base64 for persistent storage
       let base64Image: string | null = null;
       if (imagePreview) {
         try {
@@ -568,7 +565,7 @@ function ProductFormScreen({
 
   return (
     <>
-      <div className="h-full flex flex-col" data-ocid="inventario.dialog">
+      <div className="h-full flex flex-col" data-ocid="inventariopv.dialog">
         <div className="flex items-center px-4 py-3 border-b border-border shrink-0">
           <button
             type="button"
@@ -602,7 +599,7 @@ function ProductFormScreen({
                   size="sm"
                   className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs"
                   onClick={handleGallery}
-                  data-ocid="inventario.upload_button"
+                  data-ocid="inventariopv.upload_button"
                 >
                   <ImageIcon size={16} />
                   Galería
@@ -613,7 +610,7 @@ function ProductFormScreen({
                   size="sm"
                   className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs"
                   onClick={() => setShowCamera(true)}
-                  data-ocid="inventario.camera.button"
+                  data-ocid="inventariopv.camera.button"
                 >
                   <Camera size={16} />
                   Cámara
@@ -625,7 +622,7 @@ function ProductFormScreen({
                   className="flex flex-col items-center gap-1 h-auto py-2 px-3 text-xs text-destructive hover:text-destructive"
                   onClick={() => setImagePreview(null)}
                   disabled={!imagePreview}
-                  data-ocid="inventario.delete_button"
+                  data-ocid="inventariopv.delete_button"
                 >
                   <Trash2 size={16} />
                   Eliminar
@@ -642,29 +639,29 @@ function ProductFormScreen({
 
             {/* Nombre */}
             <div className="space-y-1.5">
-              <Label htmlFor="nombre">
+              <Label htmlFor="pv-nombre">
                 Nombre del producto <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="nombre"
+                id="pv-nombre"
                 placeholder="Ej. Arroz 1kg"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                data-ocid="inventario.input"
+                data-ocid="inventariopv.input"
               />
             </div>
 
             {/* Código */}
             <div className="space-y-1.5">
-              <Label htmlFor="codigo">Código del producto</Label>
+              <Label htmlFor="pv-codigo">Código del producto</Label>
               <div className="flex gap-2">
                 <Input
-                  id="codigo"
+                  id="pv-codigo"
                   placeholder="Escribe o escanea"
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
                   className="flex-1"
-                  data-ocid="inventario.search_input"
+                  data-ocid="inventariopv.search_input"
                 />
                 <Button
                   type="button"
@@ -672,7 +669,7 @@ function ProductFormScreen({
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   onClick={() => setShowQR(true)}
-                  data-ocid="inventario.qr.button"
+                  data-ocid="inventariopv.qr.button"
                 >
                   <QrCode size={18} />
                 </Button>
@@ -693,12 +690,12 @@ function ProductFormScreen({
                     setCantidad(Math.max(0, val));
                   }}
                   className="w-24 shrink-0"
-                  data-ocid="inventario.cantidad.input"
+                  data-ocid="inventariopv.cantidad.input"
                 />
                 <Select value={selectedUnit} onValueChange={setSelectedUnit}>
                   <SelectTrigger
                     className="flex-1"
-                    data-ocid="inventario.unit.select"
+                    data-ocid="inventariopv.unit.select"
                   >
                     <SelectValue placeholder="Unidad" />
                   </SelectTrigger>
@@ -716,33 +713,33 @@ function ProductFormScreen({
 
             {/* Precio costo */}
             <div className="space-y-1.5">
-              <Label htmlFor="precioCosto">Precio de costo</Label>
+              <Label htmlFor="pv-precioCosto">Precio de costo</Label>
               <Input
-                id="precioCosto"
+                id="pv-precioCosto"
                 type="number"
                 min={0}
                 step="0.01"
                 placeholder="0.00"
                 value={precioCosto}
                 onChange={(e) => setPrecioCosto(e.target.value)}
-                data-ocid="inventario.costo.input"
+                data-ocid="inventariopv.costo.input"
               />
             </div>
 
             {/* Precio venta */}
             <div className="space-y-1.5">
-              <Label htmlFor="precioVenta">
+              <Label htmlFor="pv-precioVenta">
                 Precio de venta <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="precioVenta"
+                id="pv-precioVenta"
                 type="number"
                 min={0}
                 step="0.01"
                 placeholder="0.00"
                 value={precioVenta}
                 onChange={(e) => setPrecioVenta(e.target.value)}
-                data-ocid="inventario.venta.input"
+                data-ocid="inventariopv.venta.input"
               />
             </div>
 
@@ -801,7 +798,7 @@ function ProductFormScreen({
                   }
                 }}
               >
-                <SelectTrigger data-ocid="inventario.ubicacion.select">
+                <SelectTrigger data-ocid="inventariopv.ubicacion.select">
                   <SelectValue placeholder="Sin asignar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -836,7 +833,7 @@ function ProductFormScreen({
                         setCategoria(val === "__none__" ? "" : val)
                       }
                     >
-                      <SelectTrigger data-ocid="inventario.categoria.select">
+                      <SelectTrigger data-ocid="inventariopv.categoria.select">
                         <SelectValue placeholder="Sin categoría" />
                       </SelectTrigger>
                       <SelectContent>
@@ -857,7 +854,7 @@ function ProductFormScreen({
               className="w-full h-12 text-base font-semibold mt-2"
               onClick={handleGuardar}
               disabled={isPending}
-              data-ocid="inventario.submit_button"
+              data-ocid="inventariopv.submit_button"
             >
               {isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -891,16 +888,8 @@ function ProductFormScreen({
   );
 }
 
-// ---------- Inventario Page ----------
-interface InventarioProps {
-  openAdd?: boolean;
-  onAddComplete?: () => void;
-}
-
-export default function Inventario({
-  openAdd,
-  onAddComplete,
-}: InventarioProps) {
+// ---------- InventarioPV Page ----------
+export default function InventarioPV() {
   const { data: products = [], isLoading } = useProducts();
   const deleteProduct = useDeleteProduct();
   const createProduct = useCreateProduct();
@@ -911,23 +900,25 @@ export default function Inventario({
   const [, forceUpdate] = useState(0);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: controlled by openAdd
-  useEffect(() => {
-    if (openAdd) {
-      setEditingProduct(null);
-      setShowProductScreen(true);
-    }
-  }, [openAdd]);
-
   const fileInputRef2 = useRef<HTMLInputElement>(null);
 
+  // Filter: show products assigned to puntoVenta or with no assignment (backward compat)
+  const pvProducts = products.filter((p) => {
+    const meta = getProductMeta(p.id);
+    return (
+      !meta.ubicacionTipo ||
+      meta.ubicacionTipo === "puntoVenta" ||
+      meta.ubicacionTipo === "none"
+    );
+  });
+
   const filteredProducts = searchTerm
-    ? products.filter(
+    ? pvProducts.filter(
         (p) =>
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.barcode.toLowerCase().includes(searchTerm.toLowerCase()),
       )
-    : products;
+    : pvProducts;
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
@@ -966,7 +957,7 @@ export default function Inventario({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `inventario_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `inventario_pv_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -979,7 +970,7 @@ export default function Inventario({
         return `<tr><td>${p.barcode}</td><td>${p.name}</td><td>${String(p.stock)}</td><td>${unit}</td><td>$${formatPrice(p.price)}</td></tr>`;
       })
       .join("");
-    const html = `<html><head><title>Inventario</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Inventario de Productos</h2><table><thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Unidad</th><th>Precio venta</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const html = `<html><head><title>Inventario PV</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Inventario Punto de Venta</h2><table><thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Unidad</th><th>Precio venta</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
     const win = window.open("", "_blank");
     if (win) {
       win.document.write(html);
@@ -1002,21 +993,17 @@ export default function Inventario({
       for (const rawLine of lines) {
         const line = rawLine.trim();
         if (!line) continue;
-        // Skip comment lines
         if (line.startsWith("#")) continue;
-        // Skip header row (first non-comment line that starts with "nombre")
         if (!headerSkipped && line.toLowerCase().startsWith("nombre")) {
           headerSkipped = true;
           continue;
         }
 
-        // Parse columns: nombre(0), código(1), cantidad(2), unidad(3), precioCosto(4), precioVenta(5)
         const cols = line.split(",").map((c) => c.trim());
         const nombre = cols[0] ?? "";
         const codigo = cols[1] ?? "";
         const cantidad = Number.parseInt(cols[2] ?? "0") || 0;
         const unidad = cols[3] ?? "Unidad";
-        // col 4 is precio costo — ignored
         const precioVenta = Number.parseFloat(cols[5] ?? "0") || 0;
 
         if (!nombre || precioVenta <= 0) {
@@ -1058,20 +1045,28 @@ export default function Inventario({
     <div className="relative px-4 pb-6 pt-4">
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          {filteredProducts.length} productos en inventario
+          {filteredProducts.length} productos en punto de venta
         </p>
         <div className="flex items-center gap-1 ml-auto mr-1">
           <button
             type="button"
             onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-lg transition-colors ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === "list"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
           >
             <LayoutList size={16} />
           </button>
           <button
             type="button"
             onClick={() => setViewMode("grid")}
-            className={`p-1.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === "grid"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
           >
             <LayoutGrid size={16} />
           </button>
@@ -1081,7 +1076,7 @@ export default function Inventario({
             <button
               type="button"
               className="p-2 rounded-lg hover:bg-muted transition-colors"
-              data-ocid="inventario.dropdown_menu"
+              data-ocid="inventariopv.dropdown_menu"
             >
               <MoreVertical size={18} className="text-muted-foreground" />
             </button>
@@ -1122,18 +1117,23 @@ export default function Inventario({
       )}
       <ScrollArea className="h-[calc(100vh-180px)]">
         {isLoading ? (
-          <div className="space-y-3" data-ocid="inventario.loading_state">
+          <div className="space-y-3" data-ocid="inventariopv.loading_state">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />
             ))}
           </div>
-        ) : products.length === 0 ? (
-          <div className="py-16 text-center" data-ocid="inventario.empty_state">
+        ) : pvProducts.length === 0 ? (
+          <div
+            className="py-16 text-center"
+            data-ocid="inventariopv.empty_state"
+          >
             <Package
               size={40}
               className="mx-auto text-muted-foreground/30 mb-3"
             />
-            <p className="text-muted-foreground">Sin productos</p>
+            <p className="text-muted-foreground">
+              Sin productos en punto de venta
+            </p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               Toca + para agregar tu primer producto
             </p>
@@ -1145,7 +1145,7 @@ export default function Inventario({
                 {filteredProducts.map((p, idx) => (
                   <div
                     key={String(p.id)}
-                    data-ocid={`inventario.item.${idx + 1}`}
+                    data-ocid={`inventariopv.item.${idx + 1}`}
                     className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-xs"
                   >
                     <ProductThumbnail productId={p.id} />
@@ -1192,7 +1192,7 @@ export default function Inventario({
                 {filteredProducts.map((p, idx) => (
                   <div
                     key={String(p.id)}
-                    data-ocid={`inventario.item.${idx + 1}`}
+                    data-ocid={`inventariopv.item.${idx + 1}`}
                     className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2 shadow-xs"
                   >
                     <ProductThumbnail productId={p.id} />
@@ -1235,7 +1235,7 @@ export default function Inventario({
           setShowProductScreen(true);
         }}
         className="absolute bottom-6 right-2 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-transform"
-        data-ocid="inventario.open_modal_button"
+        data-ocid="inventariopv.open_modal_button"
         aria-label="Agregar producto"
       >
         <Plus size={28} strokeWidth={2.5} />
@@ -1254,7 +1254,6 @@ export default function Inventario({
               forceUpdate((n) => n + 1);
               setShowProductScreen(false);
               setEditingProduct(null);
-              onAddComplete?.();
             }}
           />
         </div>

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useEntidades } from "../hooks/useEntidades";
 import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
 
 interface Promoter {
@@ -102,6 +103,37 @@ function PromoterFormFields({
   onChange: (f: PromoterFormState) => void;
   prefix: string;
 }) {
+  const { enabled, entities } = useEntidades();
+  const [entitySearch, setEntitySearch] = useState("");
+  const [showEntityResults, setShowEntityResults] = useState(false);
+
+  const filteredEntities = entitySearch
+    ? entities
+        .filter(
+          (e) =>
+            e.CODIGO.toLowerCase().includes(entitySearch.toLowerCase()) ||
+            e.DESC.toLowerCase().includes(entitySearch.toLowerCase()),
+        )
+        .slice(0, 8)
+    : [];
+
+  const applyEntity = (e: {
+    CODIGO: string;
+    DESC: string;
+    DIREC: string;
+    SIGLAS: string;
+  }) => {
+    onChange({
+      ...form,
+      name: e.DESC,
+      codigo: e.CODIGO.slice(-5),
+      reeup: e.SIGLAS,
+      direccion: e.DIREC,
+    });
+    setEntitySearch("");
+    setShowEntityResults(false);
+  };
+
   const set = (key: keyof PromoterFormState, value: string) => {
     const updated = { ...form, [key]: value };
     if (key === "nit") {
@@ -112,6 +144,49 @@ function PromoterFormFields({
 
   return (
     <div className="space-y-3">
+      {enabled && entities.length > 0 && (
+        <div className="space-y-1.5 pb-2 border-b border-border">
+          <p className="text-sm font-medium text-muted-foreground">
+            Buscar entidad
+          </p>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por código o nombre de entidad..."
+              value={entitySearch}
+              onChange={(e) => {
+                setEntitySearch(e.target.value);
+                setShowEntityResults(true);
+              }}
+              onFocus={() => setShowEntityResults(true)}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              data-ocid={`${prefix}.entity_search_input`}
+            />
+            {showEntityResults && filteredEntities.length > 0 && (
+              <div className="absolute z-50 top-full left-0 right-0 bg-card border border-border rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
+                {filteredEntities.map((ent) => (
+                  <button
+                    key={ent.CODIGO}
+                    type="button"
+                    className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b last:border-0"
+                    onClick={() => applyEntity(ent)}
+                  >
+                    <p className="text-sm font-medium">{ent.DESC}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ent.CODIGO}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {entitySearch && filteredEntities.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Sin resultados para "{entitySearch}"
+            </p>
+          )}
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor={`${prefix}-codigo`}>Código (auto)</Label>
         <Input

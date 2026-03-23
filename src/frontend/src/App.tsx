@@ -1,10 +1,22 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ArrowDownToLine,
   ArrowUpToLine,
   BarChart2,
+  CalendarX2,
   Factory,
+  FileText,
   HelpCircle,
   Info,
   List,
@@ -13,51 +25,67 @@ import {
   Phone,
   PlusCircle,
   Settings,
+  ShoppingBag,
   UserCheck,
+  UserCog,
   Users,
+  Warehouse,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useSeed } from "./hooks/useQueries";
 import AcercaDe from "./pages/AcercaDe";
+import Almacenes from "./pages/Almacenes";
 import Ayuda from "./pages/Ayuda";
 import Clientes from "./pages/Clientes";
 import Configuracion from "./pages/Configuracion";
 import Contactar from "./pages/Contactar";
+import Empleados from "./pages/Empleados";
 import EntradaMercancia from "./pages/EntradaMercancia";
+import Facturas from "./pages/Facturas";
 import Inventario from "./pages/Inventario";
+import InventarioPV from "./pages/InventarioPV";
 import NuevaVenta from "./pages/NuevaVenta";
 import Produccion from "./pages/Produccion";
 import Promovedores from "./pages/Promovedores";
 import Reportes from "./pages/Reportes";
 import SalidaMercancia from "./pages/SalidaMercancia";
 import Ventas from "./pages/Ventas";
+import { advanceWorkDate } from "./utils/diaLaboral";
 
 const queryClient = new QueryClient();
 
 type Screen =
   | "nueva-venta"
   | "ventas"
+  | "inventario-pv"
+  | "almacenes"
+  | "inventario"
   | "entrada-mercancia"
   | "salida-mercancia"
-  | "inventario"
   | "produccion"
   | "clientes"
   | "promovedores"
+  | "facturas"
+  | "empleados"
   | "reportes"
+  | "cerrar-dia"
   | "configuracion"
+  | "contactar"
   | "ayuda"
-  | "acerca-de"
-  | "contactar";
+  | "acerca-de";
 
 const SCREENS: {
   id: Screen;
   label: string;
   icon: React.ReactNode;
   section: number;
+  special?: boolean;
 }[] = [
+  // Section 1
   {
     id: "nueva-venta",
     label: "Nueva Venta",
@@ -65,6 +93,25 @@ const SCREENS: {
     section: 1,
   },
   { id: "ventas", label: "Ventas", icon: <List size={18} />, section: 1 },
+  {
+    id: "inventario-pv",
+    label: "Inventario PV",
+    icon: <ShoppingBag size={18} />,
+    section: 1,
+  },
+  // Section 2
+  {
+    id: "almacenes",
+    label: "Almacenes",
+    icon: <Warehouse size={18} />,
+    section: 2,
+  },
+  {
+    id: "inventario",
+    label: "Inventario",
+    icon: <Package size={18} />,
+    section: 2,
+  },
   {
     id: "entrada-mercancia",
     label: "Entrada de Mercancía",
@@ -78,17 +125,12 @@ const SCREENS: {
     section: 2,
   },
   {
-    id: "inventario",
-    label: "Inventario",
-    icon: <Package size={18} />,
-    section: 2,
-  },
-  {
     id: "produccion",
     label: "Producción",
     icon: <Factory size={18} />,
     section: 2,
   },
+  // Section 3
   { id: "clientes", label: "Clientes", icon: <Users size={18} />, section: 3 },
   {
     id: "promovedores",
@@ -97,10 +139,30 @@ const SCREENS: {
     section: 3,
   },
   {
+    id: "facturas",
+    label: "Facturas",
+    icon: <FileText size={18} />,
+    section: 3,
+  },
+  {
+    id: "empleados",
+    label: "Empleados",
+    icon: <UserCog size={18} />,
+    section: 3,
+  },
+  // Section 4
+  {
     id: "reportes",
     label: "Reportes",
     icon: <BarChart2 size={18} />,
     section: 4,
+  },
+  {
+    id: "cerrar-dia",
+    label: "Cerrar Día",
+    icon: <CalendarX2 size={18} />,
+    section: 4,
+    special: true,
   },
   {
     id: "configuracion",
@@ -126,17 +188,22 @@ const SCREENS: {
 const SCREEN_TITLES: Record<Screen, string> = {
   "nueva-venta": "Nueva Venta",
   ventas: "Ventas",
+  "inventario-pv": "Inventario PV",
+  almacenes: "Almacenes",
+  inventario: "Inventario",
   "entrada-mercancia": "Entrada de Mercancía",
   "salida-mercancia": "Salida de Mercancía",
-  inventario: "Inventario",
   produccion: "Producción",
   clientes: "Clientes",
   promovedores: "Proveedores",
+  facturas: "Facturas",
+  empleados: "Empleados",
   reportes: "Reportes",
+  "cerrar-dia": "Cerrar Día",
   configuracion: "Configuración",
+  contactar: "Contactar",
   ayuda: "Ayuda",
   "acerca-de": "Acerca de",
-  contactar: "Contactar",
 };
 
 function SeedButton() {
@@ -158,6 +225,7 @@ function AppInner() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [returnToEntrada, setReturnToEntrada] = useState(false);
   const [inventarioOpenAdd, setInventarioOpenAdd] = useState(false);
+  const [showCerrarDiaDialog, setShowCerrarDiaDialog] = useState(false);
 
   const navigate = (screen: Screen) => {
     setActiveScreen(screen);
@@ -180,6 +248,22 @@ function AppInner() {
     }
   };
 
+  const handleCerrarDia = () => {
+    const nextDate = advanceWorkDate();
+    setShowCerrarDiaDialog(false);
+    setSidebarOpen(false);
+    toast.success(`Día cerrado. Fecha de trabajo: ${nextDate}`);
+  };
+
+  const handleNavClick = (item: (typeof SCREENS)[0]) => {
+    if (item.special && item.id === "cerrar-dia") {
+      setSidebarOpen(false);
+      setShowCerrarDiaDialog(true);
+    } else {
+      navigate(item.id);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
       {/* Top App Bar */}
@@ -197,6 +281,36 @@ function AppInner() {
           POS Mobile
         </h1>
       </header>
+
+      {/* Cerrar Día confirmation dialog */}
+      <AlertDialog
+        open={showCerrarDiaDialog}
+        onOpenChange={setShowCerrarDiaDialog}
+      >
+        <AlertDialogContent data-ocid="cerrar-dia.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar el día de trabajo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción marcará como terminadas todas las ventas, entradas y
+              salidas de mercancía del día actual. La fecha de trabajo avanzará
+              al día siguiente. Los datos no se eliminarán y podrás consultarlos
+              en los Reportes filtrando por fecha.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="cerrar-dia.cancel_button">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="cerrar-dia.confirm_button"
+              onClick={handleCerrarDia}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Cerrar Día
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Sidebar overlay */}
       <AnimatePresence>
@@ -250,16 +364,16 @@ function AppInner() {
                           type="button"
                           key={item.id}
                           data-ocid={`nav.${item.id}.link`}
-                          onClick={() => navigate(item.id)}
+                          onClick={() => handleNavClick(item)}
                           className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-colors ${
-                            activeScreen === item.id
+                            !item.special && activeScreen === item.id
                               ? "bg-gray-100 text-navy font-semibold border-l-4 border-navy"
                               : "text-gray-700 hover:bg-gray-50 hover:text-navy border-l-4 border-transparent"
                           }`}
                         >
                           <span
                             className={
-                              activeScreen === item.id
+                              !item.special && activeScreen === item.id
                                 ? "text-navy"
                                 : "text-gray-500"
                             }
@@ -326,6 +440,8 @@ function AppInner() {
               </div>
             )}
             {activeScreen === "ventas" && <Ventas />}
+            {activeScreen === "inventario-pv" && <InventarioPV />}
+            {activeScreen === "almacenes" && <Almacenes />}
             {activeScreen === "entrada-mercancia" && (
               <div className="flex-1 overflow-hidden flex flex-col">
                 <EntradaMercancia
@@ -344,8 +460,10 @@ function AppInner() {
                 onAddComplete={handleInventarioAddComplete}
               />
             )}
-            {activeScreen === "clientes" && <Clientes />}
             {activeScreen === "produccion" && <Produccion />}
+            {activeScreen === "facturas" && <Facturas />}
+            {activeScreen === "empleados" && <Empleados />}
+            {activeScreen === "clientes" && <Clientes />}
             {activeScreen === "promovedores" && <Promovedores />}
             {activeScreen === "reportes" && <Reportes />}
             {activeScreen === "configuracion" && <Configuracion />}

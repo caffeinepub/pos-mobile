@@ -19,6 +19,9 @@ export interface SalidaMercancia {
   tipoSalidaId: string;
   tipoSalidaNombre: string;
   motivo?: string;
+  destinoTipo?: "almacen" | "puntoVenta" | "produccion";
+  destinoId?: string;
+  destinoNombre?: string;
 }
 
 const SALIDAS_KEY = "pos_salidas";

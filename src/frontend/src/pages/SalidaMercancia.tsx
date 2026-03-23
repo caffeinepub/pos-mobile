@@ -12,18 +12,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowDownToLine,
+  MapPin,
   Minus,
   Package,
   Plus,
   QrCode,
   Search,
   Trash2,
+  Warehouse,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
 import { useProducts, useUpdateProduct } from "../hooks/useQueries";
 import { useQRScanner } from "../qr-code/useQRScanner";
+import { getAlmacenes } from "../utils/almacenes";
+import { registrarMovimiento } from "../utils/movimientos";
+import { addInsumo } from "../utils/produccion";
+import { getPuntosVenta } from "../utils/puntosVenta";
 import {
   type SalidaMercanciaTipo,
   getTiposSalida,
@@ -453,6 +459,12 @@ export default function SalidaMercancia() {
   const [selectedTipo, setSelectedTipo] = useState<SalidaMercanciaTipo | null>(
     null,
   );
+  const [selectedDestino, setSelectedDestino] = useState<{
+    tipo: "almacen" | "puntoVenta" | "produccion";
+    id: string;
+    nombre: string;
+  } | null>(null);
+  const [showDestino, setShowDestino] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showProducts, setShowProducts] = useState(false);
   const [showTipos, setShowTipos] = useState(false);
@@ -516,20 +528,61 @@ export default function SalidaMercancia() {
       toast.error("Selecciona un tipo de salida");
       return;
     }
+    if (!selectedDestino) {
+      toast.error("Selecciona un destino para la salida");
+      return;
+    }
 
+    const today = new Date().toISOString().split("T")[0];
     setIsPending(true);
     try {
-      for (const item of cart) {
-        const newStock = BigInt(
-          Math.max(Number(item.product.stock) - item.quantity, 0),
-        );
-        await updateProduct.mutateAsync({
-          id: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          barcode: item.product.barcode,
-          stock: newStock,
-        });
+      if (selectedDestino.tipo === "produccion") {
+        for (const item of cart) {
+          addInsumo({
+            nombre: item.product.name,
+            codigo: item.product.barcode || "",
+            cantidad: item.quantity,
+            unidad: "Unidad",
+            costoUnitario: Number(item.product.price) / 100,
+            costoTotal: (Number(item.product.price) / 100) * item.quantity,
+            fechaIngreso: today,
+          });
+          const newStock = BigInt(
+            Math.max(Number(item.product.stock) - item.quantity, 0),
+          );
+          await updateProduct.mutateAsync({
+            id: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            barcode: item.product.barcode,
+            stock: newStock,
+          });
+          registrarMovimiento(
+            String(item.product.id),
+            today,
+            "salida",
+            item.quantity,
+          );
+        }
+      } else {
+        for (const item of cart) {
+          const newStock = BigInt(
+            Math.max(Number(item.product.stock) - item.quantity, 0),
+          );
+          await updateProduct.mutateAsync({
+            id: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            barcode: item.product.barcode,
+            stock: newStock,
+          });
+          registrarMovimiento(
+            String(item.product.id),
+            today,
+            "salida",
+            item.quantity,
+          );
+        }
       }
 
       saveSalida({
@@ -542,11 +595,19 @@ export default function SalidaMercancia() {
         })),
         tipoSalidaId: selectedTipo.id,
         tipoSalidaNombre: selectedTipo.name,
+        destinoTipo: selectedDestino.tipo,
+        destinoId: selectedDestino.id,
+        destinoNombre: selectedDestino.nombre,
       });
 
-      toast.success("Salida de mercancía registrada");
+      toast.success(
+        selectedDestino.tipo === "produccion"
+          ? "Enviado a Producción (Insumos)"
+          : "Salida de mercancía registrada",
+      );
       setCart([]);
       setSelectedTipo(null);
+      setSelectedDestino(null);
     } catch {
       toast.error("Error al registrar la salida");
     } finally {
@@ -569,6 +630,29 @@ export default function SalidaMercancia() {
               </Badge>
             )}
           </div>
+          {/* Destino selector */}
+          <button
+            type="button"
+            onClick={() => setShowDestino(true)}
+            data-ocid="salida.destino_select"
+            className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30 hover:bg-muted/50 transition-colors w-full text-left"
+          >
+            <Warehouse
+              size={14}
+              className={
+                selectedDestino ? "text-orange-500" : "text-muted-foreground"
+              }
+            />
+            <span className="text-xs font-medium text-foreground">
+              Destino:
+            </span>
+            <span
+              className={`text-xs flex-1 truncate ${selectedDestino ? "text-orange-600 font-semibold" : "text-muted-foreground"}`}
+            >
+              {selectedDestino ? selectedDestino.nombre : "Seleccionar destino"}
+            </span>
+            <MapPin size={12} className="text-muted-foreground shrink-0" />
+          </button>
           <div className="flex-1 overflow-y-auto">
             {cart.length === 0 ? (
               <div className="py-10 text-center" data-ocid="salida.empty_state">
@@ -729,6 +813,116 @@ export default function SalidaMercancia() {
         onClose={() => setShowTipos(false)}
         onSelect={setSelectedTipo}
       />
+      <DestinoModal
+        open={showDestino}
+        onClose={() => setShowDestino(false)}
+        onSelect={(d) => {
+          setSelectedDestino(d);
+          setShowDestino(false);
+        }}
+      />
     </div>
+  );
+}
+
+interface DestinoOption {
+  tipo: "almacen" | "puntoVenta" | "produccion";
+  id: string;
+  nombre: string;
+}
+
+function DestinoModal({
+  open,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (d: DestinoOption) => void;
+}) {
+  const almacenes = getAlmacenes();
+  const puntos = getPuntosVenta();
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-xs mx-auto rounded-2xl p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogTitle className="text-base">Seleccionar Destino</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="max-h-72">
+          <div className="px-2 pb-4 space-y-1">
+            <button
+              type="button"
+              onClick={() =>
+                onSelect({
+                  tipo: "produccion",
+                  id: "produccion",
+                  nombre: "Producción (Insumos)",
+                })
+              }
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left"
+              data-ocid="salida.destino.produccion"
+            >
+              <span className="text-lg">⚙️</span>
+              <div>
+                <p className="text-sm font-medium">Producción (Insumos)</p>
+                <p className="text-xs text-muted-foreground">
+                  Los productos irán a la pestaña Insumos
+                </p>
+              </div>
+            </button>
+            {almacenes.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() =>
+                  onSelect({
+                    tipo: "almacen",
+                    id: a.id,
+                    nombre: `Almacén #${a.numero} - ${a.descripcion}`,
+                  })
+                }
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left"
+              >
+                <Warehouse
+                  size={16}
+                  className="text-muted-foreground shrink-0"
+                />
+                <div>
+                  <p className="text-sm font-medium">
+                    Almacén #{a.numero} - {a.descripcion}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {a.categorias.join(", ")}
+                  </p>
+                </div>
+              </button>
+            ))}
+            {puntos.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() =>
+                  onSelect({
+                    tipo: "puntoVenta",
+                    id: p.id,
+                    nombre: `PDV: ${p.name}`,
+                  })
+                }
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left"
+              >
+                <MapPin size={16} className="text-muted-foreground shrink-0" />
+                <p className="text-sm font-medium">PDV: {p.name}</p>
+              </button>
+            ))}
+            {almacenes.length === 0 && puntos.length === 0 && (
+              <p className="text-xs text-muted-foreground px-3 py-2">
+                No hay almacenes ni puntos de venta configurados.
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }

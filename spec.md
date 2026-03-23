@@ -1,32 +1,47 @@
 # POS Mobile
 
 ## Current State
-- Configuración tiene 7 secciones: Datos del negocio, Moneda, Apariencia, Tipo de Pago, Salida de Mercancía, Entrada de Mercancía, Producción.
-- TipoPago usa backend (createPaymentType/updatePaymentType/deletePaymentType). Las demás configuraciones de tipos (entrada/salida) usan localStorage.
-- NuevaVenta muestra el carrito con botones de acción fijos abajo (scan, agregar, cliente, tipo de pago). No tiene selector de punto de venta ni selector de fecha.
-- Ventas lista las ventas con cliente, tipo de pago, fecha, total. No muestra punto de venta.
+Version 42. The app has sections: Nueva Venta, Ventas, Inventario PV (Section 1); Almacenes, Inventario, Entrada de Mercancía, Salida de Mercancía, Producción (Section 2); Clientes, Proveedores, Facturas (Section 3); Reportes, Cerrar Día, Configuración, Contactar, Ayuda, Acerca de (Section 4). All modules implemented with localStorage for extended data.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Configuración > Puntos de Venta**: Nueva sección (8va) con la misma estructura visual y funcional que Tipo de Pago (expand/collapse, add/edit/delete). Almacenar en localStorage bajo la clave `pos_puntos_venta`.
-- **NuevaVenta > Selector de Punto de Venta**: Lista desplegable (Select) encima del carrito o en la barra superior del carrito para seleccionar el punto de venta activo. El punto de venta seleccionado persiste en localStorage (`pos_selected_punto_venta`) y se mantiene entre sesiones hasta que el usuario lo cambie.
-- **NuevaVenta > Selector de Fecha**: Al lado del selector de punto de venta, mostrar la fecha actual con un icono de calendario. Al tocar el icono se abre un date picker. Por defecto la fecha actual, permite seleccionar fechas anteriores pero NO fechas futuras. La fecha seleccionada se guarda temporalmente para la venta.
-- **Ventas > Punto de Venta**: Cada venta en la lista debe mostrar el punto de venta en el que se realizó. Se guarda en localStorage bajo `sale-meta-{id}` junto con otros metadatos.
+- New menu item "Empleados" in Section 3 after "Facturas" with a UserCog icon
+- New screen `Empleados.tsx` with full CRUD for employees plus HR sub-features
+- Employee data model stored in localStorage (key `pos_empleados`):
+  - id (auto), código (auto, sequential EMP-XXXX), nombre (required), CI/carné identidad, cargo/puesto (required), categoría laboral (options: Dirigente, Técnico, Administrativo, Servicio, Obrero), escala salarial, salario base mensual (required), fecha de ingreso, teléfono, correo, dirección, observaciones
+- Days worked module (localStorage `pos_dias_trabajados`):
+  - Track per employee per month/year: días trabajados, días no laborados, ausencias, vacaciones, licencias médicas
+  - Auto-calculate días efectivos for salary
+- Salary/payment calculation module (localStorage `pos_nomina`):
+  - Generate payroll per employee per period (month/year)
+  - Fields: salario base, días laborables del mes, días trabajados efectivos, salario devengado = (salario base / días laborables) * días trabajados, descuentos (seguridad social 5% default, impuesto sobre ingresos), bonificaciones (campos libres), salario a cobrar neto
+  - Payment history: mark payments as pagado/pendiente, date paid, payment method
+- Payment/Nomina records stored in `pos_pagos_nomina`
+- Detailed employee view screen (full-screen) showing summary: datos personales, días trabajados del mes actual, última nómina, historial de pagos
+- Export payroll to PDF: list of employees with their calculated salaries for a given month
+- Search/filter employees by name, cargo, categoría
+- View toggle (list/grid) matching Clientes pattern
+- Ayuda section updated with Empleados module documentation
 
 ### Modify
-- **Configuración**: Agregar nuevo card "Puntos de Venta" con icono de tienda (Store) en la lista de opciones, antes de Producción o al final.
-- **NuevaVenta**: Al realizar la venta, guardar en localStorage `sale-meta-{saleId}` el punto de venta y la fecha seleccionada.
-- **Ventas**: Al mostrar cada venta leer `sale-meta-{saleId}` para obtener el punto de venta y mostrarlo.
+- `App.tsx`: add `empleados` to Screen type, SCREENS array (Section 3 after facturas), SCREEN_TITLES, and render `<Empleados />` in main content area
+- `Ayuda.tsx`: add collapsible section for Empleados module
 
 ### Remove
-- Nada.
+- Nothing removed
 
 ## Implementation Plan
-1. Crear hook/helper `usePuntosVenta` en localStorage para CRUD de puntos de venta (guardar en `pos_puntos_venta`).
-2. En Configuracion.tsx: agregar card "Puntos de Venta" → nueva sub-pantalla `PuntosVentaConfigScreen` con la misma estructura que `TipoPagoConfigScreen` (expand/collapse, add/edit/delete).
-3. En NuevaVenta.tsx:
-   a. Agregar fila superior con Select de punto de venta (persistido en `pos_selected_punto_venta`) y DatePicker con icono de calendario (fecha actual por defecto, no permite fechas futuras).
-   b. Al realizar venta exitosa, guardar `sale-meta-{saleId}` con `{ puntoVenta, fecha }`.
-4. En Ventas.tsx: leer `sale-meta-{saleId}` y mostrar punto de venta en cada item de la lista.
-5. Actualizar la sección de Ayuda con la nueva funcionalidad de Puntos de Venta.
+1. Create `src/frontend/src/pages/Empleados.tsx` with:
+   - Employee list with search, view toggle (list/grid), FAB to add
+   - Full-screen add employee form (ArrowLeft back navigation, all fields, Save button)
+   - Full-screen edit employee form (pre-filled, Actualizar button)
+   - Delete with confirmation
+   - Tabs or sub-screens: Datos | Días Trabajados | Nómina | Pagos
+   - Days worked entry: per month/year, editable table with days worked/absent/vacation/sick
+   - Salary calculator: auto-calculates devengado, descuentos, neto; save as nómina record
+   - Payment records: mark as paid, date, method
+   - Export payroll PDF for a given month
+   - Three-dot menu: Buscar, Exportar CSV, Exportar PDF (list of employees)
+2. Update `App.tsx` to add empleados screen
+3. Update `Ayuda.tsx` to add Empleados help section
