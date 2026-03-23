@@ -4,6 +4,8 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   BarChart2,
+  Factory,
+  HelpCircle,
   Info,
   List,
   Menu,
@@ -20,12 +22,14 @@ import { useState } from "react";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useSeed } from "./hooks/useQueries";
 import AcercaDe from "./pages/AcercaDe";
+import Ayuda from "./pages/Ayuda";
 import Clientes from "./pages/Clientes";
 import Configuracion from "./pages/Configuracion";
 import Contactar from "./pages/Contactar";
 import EntradaMercancia from "./pages/EntradaMercancia";
 import Inventario from "./pages/Inventario";
 import NuevaVenta from "./pages/NuevaVenta";
+import Produccion from "./pages/Produccion";
 import Promovedores from "./pages/Promovedores";
 import Reportes from "./pages/Reportes";
 import SalidaMercancia from "./pages/SalidaMercancia";
@@ -39,10 +43,12 @@ type Screen =
   | "entrada-mercancia"
   | "salida-mercancia"
   | "inventario"
+  | "produccion"
   | "clientes"
   | "promovedores"
   | "reportes"
   | "configuracion"
+  | "ayuda"
   | "acerca-de"
   | "contactar";
 
@@ -77,6 +83,12 @@ const SCREENS: {
     icon: <Package size={18} />,
     section: 2,
   },
+  {
+    id: "produccion",
+    label: "Producción",
+    icon: <Factory size={18} />,
+    section: 2,
+  },
   { id: "clientes", label: "Clientes", icon: <Users size={18} />, section: 3 },
   {
     id: "promovedores",
@@ -102,6 +114,12 @@ const SCREENS: {
     icon: <Phone size={18} />,
     section: 4,
   },
+  {
+    id: "ayuda",
+    label: "Ayuda",
+    icon: <HelpCircle size={18} />,
+    section: 4,
+  },
   { id: "acerca-de", label: "Acerca de", icon: <Info size={18} />, section: 4 },
 ];
 
@@ -111,10 +129,12 @@ const SCREEN_TITLES: Record<Screen, string> = {
   "entrada-mercancia": "Entrada de Mercancía",
   "salida-mercancia": "Salida de Mercancía",
   inventario: "Inventario",
+  produccion: "Producción",
   clientes: "Clientes",
   promovedores: "Proveedores",
   reportes: "Reportes",
   configuracion: "Configuración",
+  ayuda: "Ayuda",
   "acerca-de": "Acerca de",
   contactar: "Contactar",
 };
@@ -325,10 +345,12 @@ function AppInner() {
               />
             )}
             {activeScreen === "clientes" && <Clientes />}
+            {activeScreen === "produccion" && <Produccion />}
             {activeScreen === "promovedores" && <Promovedores />}
             {activeScreen === "reportes" && <Reportes />}
             {activeScreen === "configuracion" && <Configuracion />}
             {activeScreen === "contactar" && <Contactar />}
+            {activeScreen === "ayuda" && <Ayuda />}
             {activeScreen === "acerca-de" && <AcercaDe />}
           </motion.div>
         </AnimatePresence>

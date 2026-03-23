@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Coins,
   CreditCard,
+  Factory,
   ImageIcon,
   Loader2,
   Palette,
@@ -876,6 +877,106 @@ function EntradaMercanciaConfigScreen({
 }
 
 // ---- Tipo Pago Config Sub-screen ----
+function ProduccionConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
+  const [tipos, setTipos] = useState<string[]>(() => {
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem("produccion_tipos_merma") ?? "null",
+      );
+      if (Array.isArray(stored) && stored.length > 0) return stored as string[];
+    } catch {
+      /* noop */
+    }
+    return [
+      "Evaporación",
+      "Desperdicio",
+      "Defecto de calidad",
+      "Rotura",
+      "Vencimiento",
+    ];
+  });
+  const [newTipo, setNewTipo] = useState("");
+
+  const saveTipos = (list: string[]) => {
+    setTipos(list);
+    localStorage.setItem("produccion_tipos_merma", JSON.stringify(list));
+  };
+
+  const handleAdd = () => {
+    const name = newTipo.trim();
+    if (!name || tipos.includes(name)) {
+      toast.error("Nombre inválido o ya existe");
+      return;
+    }
+    saveTipos([...tipos, name]);
+    setNewTipo("");
+    toast.success("Tipo de merma agregado");
+  };
+
+  const handleDelete = (idx: number) => {
+    saveTipos(tipos.filter((_, i) => i !== idx));
+    toast.success("Tipo eliminado");
+  };
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 pb-6 pt-4 space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Configura los tipos de merma disponibles en el módulo de Producción.
+        </p>
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Tipos de Merma
+            </p>
+          </div>
+          <div className="divide-y divide-border">
+            {tipos.map((t, idx) => (
+              <div
+                key={t}
+                className="flex items-center gap-3 px-4 py-3"
+                data-ocid={`config.produccion.item.${idx + 1}`}
+              >
+                <Factory size={14} className="text-purple-500 shrink-0" />
+                <span className="text-sm flex-1">{t}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(idx)}
+                  className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10"
+                  aria-label="Eliminar"
+                  data-ocid={`config.produccion.delete_button.${idx + 1}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={newTipo}
+            onChange={(e) => setNewTipo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+            }}
+            placeholder="Nuevo tipo de merma"
+            className="flex-1"
+            data-ocid="config.produccion.input"
+          />
+          <Button
+            size="sm"
+            onClick={handleAdd}
+            disabled={!newTipo.trim()}
+            data-ocid="config.produccion.primary_button"
+          >
+            <Plus size={14} />
+          </Button>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
 function TipoPagoConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
   const { data: paymentTypes = [], isLoading } = usePaymentTypes();
   const createPT = useCreatePaymentType();
@@ -1090,7 +1191,8 @@ export default function Configuracion() {
     | "apariencia"
     | "tipoPago"
     | "salida"
-    | "entrada";
+    | "entrada"
+    | "produccion";
   const [activeSubScreen, setActiveSubScreen] = useState<SubScreen>(null);
 
   const SUB_TITLES: Record<NonNullable<SubScreen>, string> = {
@@ -1100,6 +1202,7 @@ export default function Configuracion() {
     tipoPago: "Tipos de Pago",
     salida: "Salida de Mercancía",
     entrada: "Entrada de Mercancía",
+    produccion: "Configuración de Producción",
   };
 
   if (activeSubScreen !== null) {
@@ -1139,6 +1242,9 @@ export default function Configuracion() {
         )}
         {activeSubScreen === "tipoPago" && (
           <TipoPagoConfigScreen onBack={() => setActiveSubScreen(null)} />
+        )}
+        {activeSubScreen === "produccion" && (
+          <ProduccionConfigScreen onBack={() => setActiveSubScreen(null)} />
         )}
         {activeSubScreen === "entrada" && (
           <EntradaMercanciaConfigScreen
@@ -1243,6 +1349,20 @@ export default function Configuracion() {
           <span className="font-medium text-sm flex-1">
             Entrada de Mercancía
           </span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Producción */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("produccion")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.produccion.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+            <Factory size={18} className="text-purple-500" />
+          </div>
+          <span className="font-medium text-sm flex-1">Producción</span>
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
 
