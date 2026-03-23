@@ -19,6 +19,7 @@ import {
   Palette,
   Pencil,
   Plus,
+  Store,
   Trash2,
   X,
 } from "lucide-react";
@@ -38,6 +39,13 @@ import {
   getTiposEntrada,
   saveTiposEntrada,
 } from "../utils/entradas";
+import {
+  type PuntoVenta,
+  addPuntoVenta,
+  deletePuntoVenta,
+  getPuntosVenta,
+  updatePuntoVenta,
+} from "../utils/puntosVenta";
 import {
   type SalidaMercanciaTipo,
   getTiposSalida,
@@ -1180,6 +1188,204 @@ function TipoPagoConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
   );
 }
 
+// ---- Puntos de Venta Config Sub-screen ----
+function PuntosVentaConfigScreen({ onBack: _onBack }: { onBack: () => void }) {
+  const [puntos, setPuntos] = useState<PuntoVenta[]>(getPuntosVenta);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [listExpanded, setListExpanded] = useState(true);
+
+  const reload = () => setPuntos(getPuntosVenta());
+
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    addPuntoVenta(name);
+    reload();
+    setNewName("");
+    setShowAddForm(false);
+    toast.success(`Punto de venta "${name}" agregado`);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    const name = editName.trim();
+    if (!name) return;
+    updatePuntoVenta(id, name);
+    reload();
+    setEditingId(null);
+    setEditName("");
+    toast.success("Punto de venta actualizado");
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    deletePuntoVenta(id);
+    reload();
+    setExpandedId(null);
+    toast.success(`"${name}" eliminado`);
+  };
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 pb-6 pt-4">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <Store size={16} className="text-teal" />
+            <span className="font-semibold text-sm flex-1">
+              Puntos de Venta
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowAddForm((v) => !v)}
+              className="w-7 h-7 rounded-full bg-teal flex items-center justify-center text-white hover:bg-teal/80 transition-colors"
+              aria-label="Agregar punto de venta"
+            >
+              <Plus size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setListExpanded((v) => !v)}
+              className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              aria-label="Mostrar/ocultar lista"
+            >
+              <ChevronDown
+                size={15}
+                className={`transition-transform duration-200 ${listExpanded ? "rotate-180" : "rotate-0"}`}
+              />
+            </button>
+          </div>
+          {showAddForm && (
+            <div className="px-4 py-3 border-b border-border flex gap-2 bg-muted/30">
+              <Input
+                placeholder="Nombre del punto de venta..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                }}
+                className="flex-1 h-8 text-sm"
+                autoFocus
+                data-ocid="config.puntosventa.input"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={!newName.trim()}
+                className="px-3 h-8 rounded-lg bg-teal text-white text-sm hover:bg-teal/80 disabled:opacity-50 transition-colors"
+              >
+                Agregar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewName("");
+                }}
+                className="px-2 h-8 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {listExpanded &&
+            (puntos.length === 0 ? (
+              <div
+                className="py-8 text-center"
+                data-ocid="config.puntosventa.empty_state"
+              >
+                <p className="text-muted-foreground text-sm">
+                  Sin puntos de venta
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {puntos.map((pv, idx) => (
+                  <div
+                    key={pv.id}
+                    data-ocid={`config.puntosventa.item.${idx + 1}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedId((prev) => (prev === pv.id ? null : pv.id))
+                      }
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                    >
+                      <Store size={15} className="text-teal shrink-0" />
+                      <span className="text-sm flex-1">{pv.name}</span>
+                    </button>
+                    {expandedId === pv.id && (
+                      <div className="px-4 pb-3 bg-muted/20">
+                        {editingId === pv.id ? (
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveEdit(pv.id);
+                              }}
+                              className="flex-1 h-8 text-sm"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEdit(pv.id)}
+                              disabled={!editName.trim()}
+                              className="p-1.5 rounded-lg bg-teal text-white hover:bg-teal/80 disabled:opacity-50 transition-colors"
+                              aria-label="Guardar"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditName("");
+                              }}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
+                              aria-label="Cancelar"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(pv.id);
+                                setEditName(pv.name);
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
+                            >
+                              <Pencil size={13} />
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(pv.id, pv.name)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive text-sm hover:bg-destructive/10 transition-colors"
+                              data-ocid={`config.puntosventa.delete_button.${idx + 1}`}
+                            >
+                              <Trash2 size={13} />
+                              <span>Eliminar</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
 export default function Configuracion() {
   const { theme: currentTheme } = useAppTheme();
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
@@ -1192,7 +1398,8 @@ export default function Configuracion() {
     | "tipoPago"
     | "salida"
     | "entrada"
-    | "produccion";
+    | "produccion"
+    | "puntosVenta";
   const [activeSubScreen, setActiveSubScreen] = useState<SubScreen>(null);
 
   const SUB_TITLES: Record<NonNullable<SubScreen>, string> = {
@@ -1203,6 +1410,7 @@ export default function Configuracion() {
     salida: "Salida de Mercancía",
     entrada: "Entrada de Mercancía",
     produccion: "Configuración de Producción",
+    puntosVenta: "Puntos de Venta",
   };
 
   if (activeSubScreen !== null) {
@@ -1250,6 +1458,9 @@ export default function Configuracion() {
           <EntradaMercanciaConfigScreen
             onBack={() => setActiveSubScreen(null)}
           />
+        )}
+        {activeSubScreen === "puntosVenta" && (
+          <PuntosVentaConfigScreen onBack={() => setActiveSubScreen(null)} />
         )}
       </div>
     );
@@ -1363,6 +1574,20 @@ export default function Configuracion() {
             <Factory size={18} className="text-purple-500" />
           </div>
           <span className="font-medium text-sm flex-1">Producción</span>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+
+        {/* Puntos de Venta */}
+        <button
+          type="button"
+          onClick={() => setActiveSubScreen("puntosVenta")}
+          className="w-full bg-card border border-border rounded-xl flex items-center gap-3 px-4 py-4 hover:bg-muted/30 transition-colors text-left"
+          data-ocid="config.puntosventa.button"
+        >
+          <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center shrink-0">
+            <Store size={18} className="text-teal" />
+          </div>
+          <span className="font-medium text-sm flex-1">Puntos de Venta</span>
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
 

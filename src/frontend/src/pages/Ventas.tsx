@@ -30,6 +30,7 @@ import {
   Receipt,
   Search,
   Share2,
+  Store,
   Trash2,
   User,
   X,
@@ -45,6 +46,7 @@ import {
   useSales,
 } from "../hooks/useQueries";
 import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
+import { getSaleMeta } from "../utils/puntosVenta";
 
 function formatPrice(amount: bigint): string {
   return (Number(amount) / 100).toFixed(2);
@@ -672,6 +674,15 @@ export default function Ventas() {
                   {getPaymentName(sale.paymentTypeId, paymentTypes)} ·{" "}
                   {formatDate(sale.date)}
                 </p>
+                {(() => {
+                  const meta = getSaleMeta(String(sale.id));
+                  return meta?.puntoVentaName ? (
+                    <p className="text-xs text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                      <Store size={11} className="shrink-0" />
+                      {meta.puntoVentaName}
+                    </p>
+                  ) : null;
+                })()}
                 <p className="text-sm font-bold text-teal mt-0.5">
                   ${formatPrice(sale.totalAmount)}
                 </p>

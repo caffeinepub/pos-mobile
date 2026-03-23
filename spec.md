@@ -1,30 +1,32 @@
 # POS Mobile
 
 ## Current State
-App v19 con Nueva Venta, Ventas (con restauración de stock al eliminar), Inventario, Clientes, Proveedores, Reportes (ventas + productos), Configuración (4 contenedores) y Acerca de.
+- Configuración tiene 7 secciones: Datos del negocio, Moneda, Apariencia, Tipo de Pago, Salida de Mercancía, Entrada de Mercancía, Producción.
+- TipoPago usa backend (createPaymentType/updatePaymentType/deletePaymentType). Las demás configuraciones de tipos (entrada/salida) usan localStorage.
+- NuevaVenta muestra el carrito con botones de acción fijos abajo (scan, agregar, cliente, tipo de pago). No tiene selector de punto de venta ni selector de fecha.
+- Ventas lista las ventas con cliente, tipo de pago, fecha, total. No muestra punto de venta.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Al eliminar una venta: mostrar un diálogo de confirmación con resumen de productos restituidos al inventario
-- Nueva sección en menú izquierdo: "Salida de Mercancía" debajo de "Ventas" (sección 1)
-- Página SalidaMercancia.tsx: proceso igual a NuevaVenta pero registra en localStorage como `salidas_mercancia[]`, NO afecta ventas ni su reporte. Usa tipos de salida en lugar de tipos de pago (configurable).
-- En Configuración: nuevo contenedor "Salida de Mercancía" con la misma estructura que Tipo de Pago para gestionar tipos de salida
-- En Reportes: nueva tarjeta "Salidas" que abre ventana de reporte con total de unidades salidas, selector de fecha, gráfico de barras por producto, estadísticas (producto con más/menos salidas, tipo de salida más usado)
+- **Configuración > Puntos de Venta**: Nueva sección (8va) con la misma estructura visual y funcional que Tipo de Pago (expand/collapse, add/edit/delete). Almacenar en localStorage bajo la clave `pos_puntos_venta`.
+- **NuevaVenta > Selector de Punto de Venta**: Lista desplegable (Select) encima del carrito o en la barra superior del carrito para seleccionar el punto de venta activo. El punto de venta seleccionado persiste en localStorage (`pos_selected_punto_venta`) y se mantiene entre sesiones hasta que el usuario lo cambie.
+- **NuevaVenta > Selector de Fecha**: Al lado del selector de punto de venta, mostrar la fecha actual con un icono de calendario. Al tocar el icono se abre un date picker. Por defecto la fecha actual, permite seleccionar fechas anteriores pero NO fechas futuras. La fecha seleccionada se guarda temporalmente para la venta.
+- **Ventas > Punto de Venta**: Cada venta en la lista debe mostrar el punto de venta en el que se realizó. Se guarda en localStorage bajo `sale-meta-{id}` junto con otros metadatos.
 
 ### Modify
-- Ventas.tsx: al hacer clic en el botón eliminar, antes de borrar mostrar un diálogo con la lista de productos que serán devueltos al inventario y sus cantidades
-- App.tsx: agregar pantalla `salida-mercancia` en SCREENS (sección 1, después de ventas) y en SCREEN_TITLES
-- Reportes.tsx: agregar tarjeta "Salidas de Mercancía" y modal de reporte de salidas
-- Configuracion.tsx: agregar contenedor "Salida de Mercancía" igual al de Tipos de Pago, usando estado local `salidaTypes` guardado en localStorage
+- **Configuración**: Agregar nuevo card "Puntos de Venta" con icono de tienda (Store) en la lista de opciones, antes de Producción o al final.
+- **NuevaVenta**: Al realizar la venta, guardar en localStorage `sale-meta-{saleId}` el punto de venta y la fecha seleccionada.
+- **Ventas**: Al mostrar cada venta leer `sale-meta-{saleId}` para obtener el punto de venta y mostrarlo.
 
 ### Remove
-- Nada
+- Nada.
 
 ## Implementation Plan
-1. Crear tipos e helpers para salidas en utils (localStorage key `pos_salidas`, `pos_salida_types`)
-2. Modificar Ventas.tsx: al click de borrar mostrar AlertDialog con resumen de productos antes de confirmar
-3. Crear SalidaMercancia.tsx: copia de NuevaVenta pero que guarda en localStorage, sin llamada a backend de ventas
-4. Modificar Configuracion.tsx: agregar SubScreen `salida` con contenedor de tipos de salida
-5. Modificar Reportes.tsx: agregar tarjeta + modal reporte de salidas
-6. Modificar App.tsx: agregar ruta y menú para salida-mercancia
+1. Crear hook/helper `usePuntosVenta` en localStorage para CRUD de puntos de venta (guardar en `pos_puntos_venta`).
+2. En Configuracion.tsx: agregar card "Puntos de Venta" → nueva sub-pantalla `PuntosVentaConfigScreen` con la misma estructura que `TipoPagoConfigScreen` (expand/collapse, add/edit/delete).
+3. En NuevaVenta.tsx:
+   a. Agregar fila superior con Select de punto de venta (persistido en `pos_selected_punto_venta`) y DatePicker con icono de calendario (fecha actual por defecto, no permite fechas futuras).
+   b. Al realizar venta exitosa, guardar `sale-meta-{saleId}` con `{ puntoVenta, fecha }`.
+4. En Ventas.tsx: leer `sale-meta-{saleId}` y mostrar punto de venta en cada item de la lista.
+5. Actualizar la sección de Ayuda con la nueva funcionalidad de Puntos de Venta.

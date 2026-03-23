@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  Calendar as CalendarIcon,
   CheckCircle2,
   CreditCard,
   Loader2,
@@ -20,11 +21,12 @@ import {
   QrCode,
   Search,
   ShoppingCart,
+  Store,
   Trash2,
   User,
   UserPlus,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Customer, PaymentType, Product } from "../backend.d";
 import {
@@ -36,6 +38,13 @@ import {
   useProducts,
 } from "../hooks/useQueries";
 import { useQRScanner } from "../qr-code/useQRScanner";
+import {
+  type SaleMeta,
+  getPuntosVenta,
+  getSelectedPuntoVenta,
+  saveSaleMeta,
+  saveSelectedPuntoVenta,
+} from "../utils/puntosVenta";
 
 interface CartItem {
   product: Product;
@@ -499,6 +508,14 @@ export default function NuevaVenta({
   const [showCustomers, setShowCustomers] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
+  const [puntosVenta, setPuntosVenta] = useState(() => getPuntosVenta());
+  const [selectedPuntoVentaId, setSelectedPuntoVentaId] = useState(() =>
+    getSelectedPuntoVenta(),
+  );
+  const [selectedDate, setSelectedDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products = [] } = useProducts();
   const { data: customers = [] } = useCustomers();
@@ -565,7 +582,9 @@ export default function NuevaVenta({
       return;
     }
 
-    await createSale.mutateAsync({
+    const pvName =
+      puntosVenta.find((pv) => pv.id === selectedPuntoVentaId)?.name ?? "";
+    const saleResult = await createSale.mutateAsync({
       customerId: selectedCustomer?.id ?? BigInt(0),
       paymentTypeId: selectedPaymentType.id,
       items: cart.map((item) => ({
@@ -574,6 +593,19 @@ export default function NuevaVenta({
         unitPrice: item.product.price,
       })),
     });
+    if (saleResult !== undefined && saleResult !== null) {
+      const saleId = String(
+        typeof saleResult === "object" && "id" in saleResult
+          ? (saleResult as { id: unknown }).id
+          : saleResult,
+      );
+      const meta: SaleMeta = {
+        puntoVentaId: selectedPuntoVentaId,
+        puntoVentaName: pvName,
+        saleDate: selectedDate,
+      };
+      saveSaleMeta(saleId, meta);
+    }
 
     toast.success("¡Venta realizada exitosamente!");
     setCart([]);
@@ -584,6 +616,65 @@ export default function NuevaVenta({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Punto de Venta + Date bar */}
+      <div className="px-4 py-2 flex items-center gap-2 border-b border-border bg-background shrink-0">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <Store size={14} className="text-teal shrink-0" />
+          <select
+            value={selectedPuntoVentaId}
+            onChange={(e) => {
+              setSelectedPuntoVentaId(e.target.value);
+              saveSelectedPuntoVenta(e.target.value);
+            }}
+            onFocus={() => setPuntosVenta(getPuntosVenta())}
+            className="flex-1 text-xs bg-transparent border-none outline-none text-foreground truncate cursor-pointer"
+            data-ocid="nueva_venta.punto_venta.select"
+          >
+            {puntosVenta.length === 0 ? (
+              <option value="" disabled>
+                Sin punto de venta
+              </option>
+            ) : (
+              <>
+                <option value="">Sin punto de venta</option>
+                {puntosVenta.map((pv) => (
+                  <option key={pv.id} value={pv.id}>
+                    {pv.name}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-xs text-muted-foreground">
+            {selectedDate
+              ? (([y, m, d]) => `${d}/${m}/${y}`)(selectedDate.split("-"))
+              : ""}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              dateInputRef.current?.showPicker?.() ??
+              dateInputRef.current?.click()
+            }
+            className="p-1 rounded hover:bg-muted transition-colors"
+            aria-label="Seleccionar fecha"
+            data-ocid="nueva_venta.date.button"
+          >
+            <CalendarIcon size={15} className="text-teal" />
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={selectedDate}
+            max={new Date().toISOString().split("T")[0]}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="w-0 h-0 opacity-0 absolute pointer-events-none"
+          />
+        </div>
+      </div>
+
       {/* Cart - scrollable area that fills available space */}
       <div className="flex-1 overflow-hidden px-4 pt-4">
         <div className="h-full bg-card rounded-xl shadow-card border border-border overflow-hidden flex flex-col">

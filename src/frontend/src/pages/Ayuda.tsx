@@ -6,7 +6,7 @@ const HELP_SECTIONS = [
     id: "nueva-venta",
     title: "Nueva Venta",
     content:
-      'Permite registrar una venta. Agrega productos al carrito usando el escáner de código de barras o el botón de agregar manualmente. Selecciona el tipo de pago (obligatorio). El cliente es opcional. Si el pago es en Efectivo, ingresa el monto pagado y el sistema calcula el cambio automáticamente. Pulsa "Realizar venta" para confirmar.',
+      'Permite registrar una venta. En la barra superior del carrito: a la izquierda, el selector de Punto de Venta (elige en qué punto se realiza la venta; la selección se mantiene hasta que la cambies); a la derecha, la fecha de la venta con ícono de calendario (por defecto es la fecha actual; puedes seleccionar fechas anteriores pero no futuras). Agrega productos al carrito usando el escáner o el botón de agregar. Selecciona el tipo de pago (obligatorio). El cliente es opcional. Si el pago es en Efectivo, ingresa el monto pagado y el sistema calcula el cambio. Pulsa "Realizar venta" para confirmar.',
   },
   {
     id: "ventas",
@@ -54,7 +54,7 @@ const HELP_SECTIONS = [
     id: "configuracion",
     title: "Configuración",
     content:
-      "Permite personalizar la aplicación en seis apartados:\n\n• Datos del negocio: nombre, teléfono, correo, dirección e imagen del negocio.\n• Moneda: selección entre más de 90 monedas del mundo con buscador.\n• Apariencia: seis temas de color disponibles (Océano, Atardecer, Bosque, Violeta, Rojo Pasión, Cielo).\n• Tipo de Pago: agrega, edita y elimina los tipos de pago disponibles en las ventas.\n• Salida de Mercancía: configura los tipos de salida (Merma, Consumo interno, Donación, etc.).\n• Entrada de Mercancía: configura los tipos de entrada (IR, Transferencia, etc.).\n• Producción: configura los tipos de merma usados en el módulo de Producción (Evaporación, Desperdicio, etc.).",
+      "Permite personalizar la aplicación en seis apartados:\n\n• Datos del negocio: nombre, teléfono, correo, dirección e imagen del negocio.\n• Moneda: selección entre más de 90 monedas del mundo con buscador.\n• Apariencia: seis temas de color disponibles (Océano, Atardecer, Bosque, Violeta, Rojo Pasión, Cielo).\n• Tipo de Pago: agrega, edita y elimina los tipos de pago disponibles en las ventas.\n• Puntos de Venta: agrega, edita y elimina los puntos de venta donde se realizan las ventas; el punto queda registrado en cada venta.\n• Salida de Mercancía: configura los tipos de salida (Merma, Consumo interno, Donación, etc.).\n• Entrada de Mercancía: configura los tipos de entrada (IR, Transferencia, etc.).\n• Producción: configura los tipos de merma usados en el módulo de Producción (Evaporación, Desperdicio, etc.).",
   },
   {
     id: "contactar",
