@@ -11,25 +11,20 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  ArrowDownToLine,
-  ArrowUpToLine,
   BarChart2,
   CalendarX2,
   Factory,
   FileText,
   HelpCircle,
   Info,
-  List,
   Menu,
   Package,
   Phone,
-  PlusCircle,
   Settings,
-  ShoppingBag,
+  Store,
   UserCheck,
   UserCog,
   Users,
-  Warehouse,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -38,34 +33,25 @@ import { toast } from "sonner";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useSeed } from "./hooks/useQueries";
 import AcercaDe from "./pages/AcercaDe";
-import Almacenes from "./pages/Almacenes";
 import Ayuda from "./pages/Ayuda";
 import Clientes from "./pages/Clientes";
 import Configuracion from "./pages/Configuracion";
 import Contactar from "./pages/Contactar";
 import Empleados from "./pages/Empleados";
-import EntradaMercancia from "./pages/EntradaMercancia";
 import Facturas from "./pages/Facturas";
 import Inventario from "./pages/Inventario";
-import InventarioPV from "./pages/InventarioPV";
-import NuevaVenta from "./pages/NuevaVenta";
 import Produccion from "./pages/Produccion";
 import Promovedores from "./pages/Promovedores";
+import PuntosDeVentas from "./pages/PuntosDeVentas";
 import Reportes from "./pages/Reportes";
-import SalidaMercancia from "./pages/SalidaMercancia";
-import Ventas from "./pages/Ventas";
+
 import { advanceWorkDate } from "./utils/diaLaboral";
 
 const queryClient = new QueryClient();
 
 type Screen =
-  | "nueva-venta"
-  | "ventas"
-  | "inventario-pv"
-  | "almacenes"
+  | "puntos-de-ventas"
   | "inventario"
-  | "entrada-mercancia"
-  | "salida-mercancia"
   | "produccion"
   | "clientes"
   | "promovedores"
@@ -87,41 +73,16 @@ const SCREENS: {
 }[] = [
   // Section 1
   {
-    id: "nueva-venta",
-    label: "Nueva Venta",
-    icon: <PlusCircle size={18} />,
-    section: 1,
-  },
-  { id: "ventas", label: "Ventas", icon: <List size={18} />, section: 1 },
-  {
-    id: "inventario-pv",
-    label: "Inventario PV",
-    icon: <ShoppingBag size={18} />,
+    id: "puntos-de-ventas",
+    label: "Puntos de Ventas",
+    icon: <Store size={18} />,
     section: 1,
   },
   // Section 2
   {
-    id: "almacenes",
-    label: "Almacenes",
-    icon: <Warehouse size={18} />,
-    section: 2,
-  },
-  {
     id: "inventario",
     label: "Inventario",
     icon: <Package size={18} />,
-    section: 2,
-  },
-  {
-    id: "entrada-mercancia",
-    label: "Entrada de Mercancía",
-    icon: <ArrowUpToLine size={18} />,
-    section: 2,
-  },
-  {
-    id: "salida-mercancia",
-    label: "Salida de Mercancía",
-    icon: <ArrowDownToLine size={18} />,
     section: 2,
   },
   {
@@ -186,13 +147,8 @@ const SCREENS: {
 ];
 
 const SCREEN_TITLES: Record<Screen, string> = {
-  "nueva-venta": "Nueva Venta",
-  ventas: "Ventas",
-  "inventario-pv": "Inventario PV",
-  almacenes: "Almacenes",
+  "puntos-de-ventas": "Puntos de Ventas",
   inventario: "Inventario",
-  "entrada-mercancia": "Entrada de Mercancía",
-  "salida-mercancia": "Salida de Mercancía",
   produccion: "Producción",
   clientes: "Clientes",
   promovedores: "Proveedores",
@@ -221,10 +177,12 @@ function SeedButton() {
 }
 
 function AppInner() {
-  const [activeScreen, setActiveScreen] = useState<Screen>("nueva-venta");
+  const [activeScreen, setActiveScreen] = useState<Screen>("puntos-de-ventas");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [returnToEntrada, setReturnToEntrada] = useState(false);
   const [inventarioOpenAdd, setInventarioOpenAdd] = useState(false);
+  const [inventarioActiveTab, setInventarioActiveTab] = useState<
+    "catalogo" | "movimientos" | "almacenes"
+  >("catalogo");
   const [showCerrarDiaDialog, setShowCerrarDiaDialog] = useState(false);
 
   const navigate = (screen: Screen) => {
@@ -233,19 +191,8 @@ function AppInner() {
   };
   const sections = [1, 2, 3, 4];
 
-  const handleAddNewProductFromEntrada = () => {
-    setReturnToEntrada(true);
-    setInventarioOpenAdd(true);
-    setActiveScreen("inventario");
-    setSidebarOpen(false);
-  };
-
   const handleInventarioAddComplete = () => {
     setInventarioOpenAdd(false);
-    if (returnToEntrada) {
-      setReturnToEntrada(false);
-      setActiveScreen("entrada-mercancia");
-    }
   };
 
   const handleCerrarDia = () => {
@@ -332,7 +279,7 @@ function AppInner() {
               className="fixed top-0 left-0 h-full w-72 z-50 flex flex-col shadow-navy overflow-hidden"
               aria-label="Menú lateral"
             >
-              {/* Sidebar Header with Logo — keeps navy background */}
+              {/* Sidebar Header with Logo */}
               <div className="relative flex flex-col items-center justify-center py-5 px-4 bg-navy border-b border-white/10 min-h-28">
                 <button
                   type="button"
@@ -353,7 +300,7 @@ function AppInner() {
                 </span>
               </div>
 
-              {/* Nav items — white background */}
+              {/* Nav items */}
               <nav className="flex-1 overflow-y-auto bg-white py-2">
                 {sections.map((section, sIdx) => (
                   <div key={section}>
@@ -388,7 +335,7 @@ function AppInner() {
                 ))}
               </nav>
 
-              {/* Footer — white background */}
+              {/* Footer */}
               <div className="bg-white">
                 <SeedButton />
                 <div className="px-4 pb-6 pt-2 border-t border-gray-200">
@@ -420,9 +367,8 @@ function AppInner() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18 }}
             className={`absolute inset-0 flex flex-col ${
-              activeScreen === "nueva-venta" ||
-              activeScreen === "entrada-mercancia" ||
-              activeScreen === "salida-mercancia"
+              activeScreen === "puntos-de-ventas" ||
+              activeScreen === "inventario"
                 ? "overflow-hidden"
                 : "overflow-y-auto"
             }`}
@@ -434,31 +380,26 @@ function AppInner() {
               </h2>
             </div>
 
-            {activeScreen === "nueva-venta" && (
+            {activeScreen === "puntos-de-ventas" && (
               <div className="flex-1 overflow-hidden flex flex-col">
-                <NuevaVenta onNavigateToClientes={() => navigate("clientes")} />
-              </div>
-            )}
-            {activeScreen === "ventas" && <Ventas />}
-            {activeScreen === "inventario-pv" && <InventarioPV />}
-            {activeScreen === "almacenes" && <Almacenes />}
-            {activeScreen === "entrada-mercancia" && (
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <EntradaMercancia
-                  onAddNewProduct={handleAddNewProductFromEntrada}
+                <PuntosDeVentas
+                  onNavigateToClientes={() => navigate("clientes")}
                 />
               </div>
             )}
-            {activeScreen === "salida-mercancia" && (
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <SalidaMercancia />
-              </div>
-            )}
             {activeScreen === "inventario" && (
-              <Inventario
-                openAdd={inventarioOpenAdd}
-                onAddComplete={handleInventarioAddComplete}
-              />
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <Inventario
+                  openAdd={inventarioOpenAdd}
+                  onAddComplete={handleInventarioAddComplete}
+                  activeTab={inventarioActiveTab}
+                  onTabChange={(tab) =>
+                    setInventarioActiveTab(
+                      tab as "catalogo" | "movimientos" | "almacenes",
+                    )
+                  }
+                />
+              </div>
             )}
             {activeScreen === "produccion" && <Produccion />}
             {activeScreen === "facturas" && <Facturas />}

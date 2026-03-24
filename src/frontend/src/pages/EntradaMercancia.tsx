@@ -43,6 +43,7 @@ import {
 import { registrarMovimiento } from "../utils/movimientos";
 import { addInsumo } from "../utils/produccion";
 import { getPuntosVenta } from "../utils/puntosVenta";
+import { upsertPVItem } from "../utils/pvInventory";
 
 interface CartItem {
   product: Product;
@@ -703,6 +704,22 @@ export default function EntradaMercancia({
             String(item.product.id),
             today,
             "entrada",
+            item.quantity,
+          );
+        }
+      }
+
+      // If destino is puntoVenta, also update PV inventory
+      if (selectedDestino.tipo === "puntoVenta") {
+        for (const item of cart) {
+          const meta = getProductMeta(item.product.id);
+          upsertPVItem(
+            selectedDestino.id,
+            selectedDestino.nombre.replace("PDV: ", ""),
+            item.product.barcode || String(item.product.id),
+            item.product.name,
+            meta.unit ?? "Unidad",
+            Number(item.product.price),
             item.quantity,
           );
         }

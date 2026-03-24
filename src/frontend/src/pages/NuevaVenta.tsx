@@ -45,6 +45,11 @@ import {
   saveSaleMeta,
   saveSelectedPuntoVenta,
 } from "../utils/puntosVenta";
+import {
+  type PVInventoryItem,
+  getPVInventoryByPV,
+  reducePVStock,
+} from "../utils/pvInventory";
 
 interface CartItem {
   product: Product;
@@ -204,18 +209,20 @@ function ProductPickerModal({
   open,
   onClose,
   onAdd,
-  products,
+  pvInventoryItems,
+  allProducts,
 }: {
   open: boolean;
   onClose: () => void;
   onAdd: (product: Product) => void;
-  products: Product[];
+  pvInventoryItems: PVInventoryItem[];
+  allProducts: Product[];
 }) {
   const [search, setSearch] = useState("");
-  const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.barcode.includes(search),
+  const filtered = pvInventoryItems.filter(
+    (i) =>
+      i.productName.toLowerCase().includes(search.toLowerCase()) ||
+      i.productCode.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -247,7 +254,14 @@ function ProductPickerModal({
             />
           </div>
           <ScrollArea className="h-64">
-            {filtered.length === 0 ? (
+            {pvInventoryItems.length === 0 ? (
+              <p
+                className="text-center text-muted-foreground text-sm py-8"
+                data-ocid="product_picker.empty_state"
+              >
+                No hay productos en Inventario PV para este punto de venta
+              </p>
+            ) : filtered.length === 0 ? (
               <p
                 className="text-center text-muted-foreground text-sm py-8"
                 data-ocid="product_picker.empty_state"
@@ -256,23 +270,35 @@ function ProductPickerModal({
               </p>
             ) : (
               <div className="space-y-1">
-                {filtered.map((p, idx) => (
+                {filtered.map((pvItem, idx) => (
                   <button
                     type="button"
-                    key={String(p.id)}
+                    key={pvItem.id}
                     data-ocid={`product_picker.item.${idx + 1}`}
                     onClick={() => {
-                      onAdd(p);
+                      const backendProduct = allProducts.find(
+                        (p) => p.barcode === pvItem.productCode,
+                      );
+                      if (!backendProduct) {
+                        toast.error("Producto no encontrado en catálogo");
+                        return;
+                      }
+                      onAdd(backendProduct);
                       onClose();
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
                   >
                     <div className="flex items-center gap-2">
-                      <ProductThumb productId={p.id} />
+                      <div className="w-9 h-9 rounded-lg bg-teal/10 flex items-center justify-center shrink-0">
+                        <Package size={14} className="text-teal" />
+                      </div>
                       <div>
-                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="font-medium text-sm">
+                          {pvItem.productName}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Stock: {String(p.stock)} · ${formatPrice(p.price)}
+                          Stock: {pvItem.stock} · $
+                          {(pvItem.price / 100).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -611,6 +637,11 @@ export default function NuevaVenta({
       saveSaleMeta(saleId, meta);
     }
 
+    // Reduce PV inventory stock for each sold item
+    for (const item of cart) {
+      reducePVStock(selectedPuntoVentaId, item.product.barcode, item.quantity);
+    }
+
     toast.success("¡Venta realizada exitosamente!");
     setCart([]);
     setSelectedCustomer(null);
@@ -903,14 +934,8 @@ export default function NuevaVenta({
         open={showProducts}
         onClose={() => setShowProducts(false)}
         onAdd={addToCart}
-        products={products.filter((p) => {
-          const m = getProductMeta(p.id);
-          return (
-            !m.ubicacionTipo ||
-            m.ubicacionTipo === "puntoVenta" ||
-            m.ubicacionTipo === "none"
-          );
-        })}
+        pvInventoryItems={getPVInventoryByPV(selectedPuntoVentaId)}
+        allProducts={products}
       />
       <CustomerModal
         open={showCustomers}

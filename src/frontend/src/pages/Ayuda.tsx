@@ -6,13 +6,13 @@ const HELP_SECTIONS = [
     id: "nueva-venta",
     title: "Nueva Venta",
     content:
-      'Permite registrar una venta. En la barra superior del carrito: a la izquierda, el selector de Punto de Venta (elige en qué punto se realiza la venta; la selección se mantiene hasta que la cambies); a la derecha, la fecha de la venta con ícono de calendario (por defecto es la fecha actual; puedes seleccionar fechas anteriores pero no futuras). Agrega productos al carrito usando el escáner o el botón de agregar. Selecciona el tipo de pago (obligatorio). El cliente es opcional. Si el pago es en Efectivo, ingresa el monto pagado y el sistema calcula el cambio. Pulsa "Realizar venta" para confirmar.',
+      'Permite registrar una venta. Selecciona el Punto de Venta activo (la selección persiste hasta cambiarla). Solo los productos existentes en el Inventario PV del punto de venta seleccionado pueden agregarse al carrito. Usa el botón de agregar para ver los productos disponibles, o el escáner QR para buscar por código. El stock en Inventario PV se reduce automáticamente al confirmar la venta. Selecciona el tipo de pago (obligatorio); el cliente es opcional. Si el pago es en Efectivo, ingresa el monto pagado y el sistema calcula el cambio. Pulsa "Realizar venta" para confirmar.',
   },
   {
     id: "ventas",
     title: "Ventas",
     content:
-      "Muestra el historial de ventas realizadas. Cada venta indica cliente, tipo de pago, fecha y total. Toca una venta para ver el detalle con los productos. Usa el menú de tres puntos (⋮) para buscar, filtrar por fecha, monto o cliente, y exportar en PDF o CSV. Al eliminar una venta, los productos regresan al inventario automáticamente y se genera un reporte de productos restituidos.",
+      "Muestra el historial de ventas realizadas. Cada venta indica cliente, tipo de pago, punto de venta, fecha y total. Toca una venta para ver el detalle con los productos. Usa el menú de tres puntos (⋮) para buscar, filtrar por fecha, monto o cliente, y exportar en PDF o CSV. Al eliminar una venta, los productos regresan al inventario automáticamente y se genera un reporte de productos restituidos.",
   },
   {
     id: "cerrar-dia",
@@ -36,7 +36,7 @@ const HELP_SECTIONS = [
     id: "inventario",
     title: "Inventario",
     content:
-      'Lista todos los productos disponibles. Cada producto muestra imagen (o marcador si no tiene), nombre, código y precio. Usa el botón "+" flotante para agregar un nuevo producto (nombre y precio de venta son obligatorios). Toca el ícono de lápiz para editar y el de papelera para eliminar. Cambia entre vista de lista y cuadrícula con los íconos en la esquina superior derecha. El menú (⋮) permite buscar, importar CSV, exportar CSV y exportar PDF.',
+      'El módulo de Inventario tiene tres pestañas:\n\n• Catálogo de Productos: registra los productos con solo tres campos: Código del producto, Nombre del Producto y Unidad de medida. Usa el botón "+" flotante para agregar. Toca el lápiz para editar y la papelera para eliminar. El menú (⋮) permite buscar, importar CSV, importar XLSX, exportar CSV, exportar XLSX y exportar PDF. Los precios y stock se gestionan desde Movimientos.\n\n• Movimientos: gestiona las Entradas y Salidas de Mercancía con tres pestañas. La primera, Historial, muestra todas las entradas y salidas realizadas en orden cronológico, con el tipo (Entrada/Salida en verde o naranja), destino y detalles de productos. Entrada de Mercancía: selecciona productos, indica cantidades y destino; si el destino es un Punto de Venta, el stock se actualiza también en Inventario PV. Salida de Mercancía: registra salidas por mermas, consumo interno u otros motivos.\n\n• Almacenes: muestra todos los almacenes creados en Configuración. Toca un almacén para ver sus productos en detalle. Dentro de cada almacén puedes agregar nuevos productos (botón "+"), importar productos desde CSV o XLSX, y exportar el contenido en CSV, XLSX o PDF.',
   },
   {
     id: "clientes",
