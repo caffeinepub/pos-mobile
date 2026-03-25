@@ -17,7 +17,11 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft,
+  CalendarDays,
   FileDown,
+  FileUp,
+  LayoutGrid,
+  LayoutList,
   MoreVertical,
   Package,
   Pencil,
@@ -26,8 +30,10 @@ import {
   Store,
   Trash2,
 } from "lucide-react";
+import React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import AddProductoWindow from "../components/AddProductoWindow";
 import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
 import { getPuntosVenta } from "../utils/puntosVenta";
 import {
@@ -38,249 +44,8 @@ import {
   upsertPVItem,
 } from "../utils/pvInventory";
 
-const DEFAULT_UNITS = [
-  "Unidad",
-  "Kg",
-  "g",
-  "Litros",
-  "ml",
-  "Caja",
-  "Paquete",
-  "Docena",
-];
-
 function formatCents(cents: number): string {
   return (cents / 100).toFixed(2);
-}
-
-// ---------- Add/Edit Form Screen ----------
-function PVItemFormScreen({
-  onClose,
-  editItem,
-  onSaved,
-}: {
-  onClose: () => void;
-  editItem?: PVInventoryItem | null;
-  onSaved?: () => void;
-}) {
-  const isEditing = !!editItem;
-  const puntosVenta = getPuntosVenta();
-
-  const [productCode, setProductCode] = useState("");
-  const [productName, setProductName] = useState("");
-  const [unit, setUnit] = useState("Unidad");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
-  const [pvId, setPvId] = useState("");
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: editItem used intentionally
-  useEffect(() => {
-    if (editItem) {
-      setProductCode(editItem.productCode);
-      setProductName(editItem.productName);
-      setUnit(editItem.unit);
-      setPrice(formatCents(editItem.price));
-      setStock(String(editItem.stock));
-      setPvId(editItem.pvId);
-    } else {
-      setProductCode("");
-      setProductName("");
-      setUnit("Unidad");
-      setPrice("");
-      setStock("");
-      setPvId(puntosVenta.length === 1 ? puntosVenta[0].id : "");
-    }
-  }, [editItem]);
-
-  const handleSave = () => {
-    if (!productName.trim()) {
-      toast.error("El nombre del producto es obligatorio");
-      return;
-    }
-    if (!productCode.trim()) {
-      toast.error("El código del producto es obligatorio");
-      return;
-    }
-    if (!pvId) {
-      toast.error("Selecciona un Punto de Venta");
-      return;
-    }
-    const priceNum = Number.parseFloat(price);
-    if (Number.isNaN(priceNum) || priceNum < 0) {
-      toast.error("El precio debe ser un número válido");
-      return;
-    }
-    const stockNum = Number.parseInt(stock) || 0;
-
-    const selectedPV = puntosVenta.find((pv) => pv.id === pvId);
-    if (!selectedPV) {
-      toast.error("Punto de Venta no válido");
-      return;
-    }
-
-    if (isEditing && editItem) {
-      updatePVItem(editItem.id, {
-        productCode: productCode.trim(),
-        productName: productName.trim(),
-        unit,
-        price: Math.round(priceNum * 100),
-        stock: Math.max(0, stockNum),
-        pvId,
-        pvName: selectedPV.name,
-      });
-      toast.success("Producto actualizado");
-    } else {
-      upsertPVItem(
-        pvId,
-        selectedPV.name,
-        productCode.trim(),
-        productName.trim(),
-        unit,
-        Math.round(priceNum * 100),
-        Math.max(0, stockNum),
-      );
-      toast.success("Producto agregado a Inventario PV");
-    }
-
-    onSaved?.();
-    onClose();
-  };
-
-  return (
-    <div className="h-full flex flex-col" data-ocid="inventariopv.dialog">
-      <div className="flex items-center px-4 py-3 border-b border-border shrink-0">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-2 text-sm font-medium text-foreground"
-          data-ocid="inventariopv.close_button"
-        >
-          <ArrowLeft size={18} />
-          {isEditing ? "Editar producto PV" : "Agregar producto PV"}
-        </button>
-      </div>
-
-      <ScrollArea className="flex-1 overflow-auto">
-        <div className="px-5 pb-6 space-y-5 pt-4">
-          {puntosVenta.length === 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <p className="text-sm text-yellow-800">
-                Configure primero los Puntos de Venta en Configuración
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="pv-select">Punto de Venta *</Label>
-            <Select value={pvId} onValueChange={setPvId}>
-              <SelectTrigger
-                id="pv-select"
-                data-ocid="inventariopv.select"
-                className="w-full"
-              >
-                <SelectValue placeholder="Seleccionar punto de venta..." />
-              </SelectTrigger>
-              <SelectContent>
-                {puntosVenta.length === 0 ? (
-                  <SelectItem value="__none__" disabled>
-                    Sin puntos de venta configurados
-                  </SelectItem>
-                ) : (
-                  puntosVenta.map((pv) => (
-                    <SelectItem key={pv.id} value={pv.id}>
-                      {pv.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="product-code">Código del producto *</Label>
-            <Input
-              id="product-code"
-              placeholder="Ej: PROD-001"
-              value={productCode}
-              onChange={(e) => setProductCode(e.target.value)}
-              data-ocid="inventariopv.input"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="product-name">Nombre del producto *</Label>
-            <Input
-              id="product-name"
-              placeholder="Ej: Refresco Cola"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Unidad de medida</Label>
-            <Select value={unit} onValueChange={setUnit}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DEFAULT_UNITS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="price">Precio de venta</Label>
-            <Input
-              id="price"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stock">Stock inicial</Label>
-            <Input
-              id="stock"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="0"
-              value={stock}
-              onChange={(e) => setStock(e.target.value)}
-            />
-          </div>
-
-          <div className="pt-2 flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-              data-ocid="inventariopv.cancel_button"
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1 bg-teal text-white hover:bg-teal/90"
-              onClick={handleSave}
-              disabled={puntosVenta.length === 0}
-              data-ocid="inventariopv.save_button"
-            >
-              {isEditing ? "Actualizar" : "Guardar"}
-            </Button>
-          </div>
-        </div>
-      </ScrollArea>
-    </div>
-  );
 }
 
 // ---------- Main Component ----------
@@ -288,8 +53,10 @@ export default function InventarioPV() {
   const [items, setItems] = useState<PVInventoryItem[]>(() => getPVInventory());
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<PVInventoryItem | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [pvViewMode, setPvViewMode] = useState<"list" | "grid">("list");
+  const [pvSelectedDate, setPvSelectedDate] = useState("");
+  const pvDateInputRef = React.useRef<HTMLInputElement>(null);
 
   const reload = useCallback(() => {
     setItems(getPVInventory());
@@ -355,24 +122,96 @@ export default function InventarioPV() {
 
   return (
     <div className="relative px-4 pb-6 pt-4">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">
-          {filtered.length} producto{filtered.length !== 1 ? "s" : ""} en PV
-        </p>
+      {/* Unified Toolbar */}
+      <div className="flex items-center gap-2 mb-2">
+        {/* Search input */}
+        <div className="relative flex-1">
+          <Search
+            size={13}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder="Buscar producto..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-7 h-9 text-xs"
+            data-ocid="inventariopv.search_input"
+          />
+        </div>
+        {/* Calendar */}
+        <div className="relative shrink-0">
+          <Button
+            variant={pvSelectedDate ? "default" : "outline"}
+            size="sm"
+            className="h-9 px-2"
+            onClick={() =>
+              pvDateInputRef.current?.showPicker?.() ??
+              pvDateInputRef.current?.click()
+            }
+          >
+            <CalendarDays size={15} />
+            {pvSelectedDate && (
+              <span className="ml-1 text-xs">
+                {new Date(`${pvSelectedDate}T00:00:00`).toLocaleDateString(
+                  "es-ES",
+                  { day: "2-digit", month: "2-digit" },
+                )}
+              </span>
+            )}
+          </Button>
+          <input
+            ref={pvDateInputRef}
+            type="date"
+            style={{
+              position: "absolute",
+              width: 0,
+              height: 0,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            max={new Date().toISOString().split("T")[0]}
+            value={pvSelectedDate}
+            onChange={(e) => setPvSelectedDate(e.target.value)}
+          />
+          {pvSelectedDate && (
+            <button
+              type="button"
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-destructive text-white rounded-full text-[9px] flex items-center justify-center z-10"
+              onClick={() => setPvSelectedDate("")}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {/* View toggle */}
+        <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
+          <button
+            type="button"
+            onClick={() => setPvViewMode("list")}
+            className={`p-2 transition-colors ${pvViewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutList size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPvViewMode("grid")}
+            className={`p-2 transition-colors ${pvViewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutGrid size={15} />
+          </button>
+        </div>
+        {/* Three-dot menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              className="p-2 h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted transition-colors border border-border"
               data-ocid="inventariopv.dropdown_menu"
             >
-              <MoreVertical size={18} className="text-muted-foreground" />
+              <MoreVertical size={15} className="text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => setShowSearch(!showSearch)}>
-              <Search size={14} className="mr-2" /> Buscar
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={exportCSV}>
               <FileDown size={14} className="mr-2" /> Exportar CSV
             </DropdownMenuItem>
@@ -382,25 +221,9 @@ export default function InventarioPV() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {showSearch && (
-        <div className="mb-3">
-          <div className="relative">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full border border-border rounded-lg pl-9 pr-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
-              data-ocid="inventariopv.search_input"
-            />
-          </div>
-        </div>
-      )}
+      <p className="text-xs text-muted-foreground mb-3">
+        {filtered.length} producto{filtered.length !== 1 ? "s" : ""} en PV
+      </p>
 
       <ScrollArea className="h-[calc(100vh-180px)]">
         {items.length === 0 ? (
@@ -418,6 +241,51 @@ export default function InventarioPV() {
             <p className="text-xs text-muted-foreground/60 mt-1">
               Toca + para agregar o usa Entrada de Mercancía
             </p>
+          </div>
+        ) : pvViewMode === "grid" ? (
+          <div className="grid grid-cols-2 gap-2 p-1">
+            {filtered.map((item, idx) => (
+              <div
+                key={item.id}
+                data-ocid={`inventariopv.item.${idx + 1}`}
+                className="bg-card border border-border rounded-xl p-3 flex flex-col gap-1 shadow-xs"
+              >
+                <div className="w-9 h-9 rounded-lg bg-teal/10 flex items-center justify-center mb-1">
+                  <Package size={14} className="text-teal" />
+                </div>
+                <p className="font-semibold text-xs truncate">
+                  {item.productName}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {item.productCode}
+                </p>
+                <p className="text-xs text-muted-foreground">{item.unit}</p>
+                <p className="text-xs font-bold text-teal">
+                  ${formatCents(item.price)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Stock: {item.stock}
+                </p>
+                <div className="flex gap-1 mt-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(item)}
+                    className="p-1 rounded hover:bg-muted"
+                    data-ocid={`inventariopv.edit_button.${idx + 1}`}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item)}
+                    className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                    data-ocid={`inventariopv.delete_button.${idx + 1}`}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="space-y-2">
@@ -494,12 +362,13 @@ export default function InventarioPV() {
 
       {showForm && (
         <div className="absolute inset-0 bg-background z-20 flex flex-col">
-          <PVItemFormScreen
+          <AddProductoWindow
+            mode="pv"
             onClose={() => {
               setShowForm(false);
               setEditingItem(null);
             }}
-            editItem={editingItem}
+            editPVItem={editingItem}
             onSaved={() => {
               reload();
               setShowForm(false);

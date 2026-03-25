@@ -48,6 +48,7 @@ import { upsertPVItem } from "../utils/pvInventory";
 interface CartItem {
   product: Product;
   quantity: number;
+  importeCompra?: string;
 }
 
 function getProductMeta(id: bigint): { image: string | null; unit: string } {
@@ -113,7 +114,6 @@ function QRScannerModal({
     stopScanning();
   }, [stopScanning]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: controlled by open
   useEffect(() => {
     if (open) handleOpen();
     else handleClose();
@@ -201,6 +201,7 @@ function ProductPickerModal({
   const [selections, setSelections] = useState<Record<string, MultiSelectItem>>(
     {},
   );
+  const [qtyStrings, setQtyStrings] = useState<Record<string, string>>({});
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [newName, setNewName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
@@ -223,16 +224,21 @@ function ProductPickerModal({
         delete next[key];
         return next;
       }
+      setQtyStrings((prev) => ({ ...prev, [key]: "1" }));
       return { ...prev, [key]: { product: p, checked: true, qty: 1 } };
     });
   };
 
-  const setQty = (p: Product, qty: number) => {
+  const setQty = (p: Product, rawValue: string) => {
     const key = String(p.id);
-    setSelections((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], qty: Math.max(1, qty) },
-    }));
+    setQtyStrings((prev) => ({ ...prev, [key]: rawValue }));
+    const parsed = Number.parseInt(rawValue);
+    if (parsed >= 1) {
+      setSelections((prev) => ({
+        ...prev,
+        [key]: { ...prev[key], qty: parsed },
+      }));
+    }
   };
 
   const handleConfirm = () => {
@@ -250,6 +256,7 @@ function ProductPickerModal({
 
   const resetAndClose = () => {
     setSelections({});
+    setQtyStrings({});
     setSearch("");
     setShowNewProduct(false);
     setNewName("");
@@ -353,10 +360,19 @@ function ProductPickerModal({
                         <Input
                           type="number"
                           min={1}
-                          value={sel.qty}
-                          onChange={(e) =>
-                            setQty(p, Number.parseInt(e.target.value) || 1)
-                          }
+                          value={qtyStrings[key] ?? String(sel.qty)}
+                          onChange={(e) => setQty(p, e.target.value)}
+                          onBlur={() => {
+                            const parsed = Number.parseInt(
+                              qtyStrings[key] ?? "",
+                            );
+                            if (!parsed || parsed < 1) {
+                              setQtyStrings((prev) => ({
+                                ...prev,
+                                [key]: String(sel.qty),
+                              }));
+                            }
+                          }}
                           className="w-16 h-8 text-center text-sm"
                           onClick={(e) => e.stopPropagation()}
                         />
@@ -693,10 +709,16 @@ export default function EntradaMercancia({
       } else {
         for (const item of cart) {
           const newStock = BigInt(Number(item.product.stock) + item.quantity);
+          let newPrice = item.product.price;
+          if (item.importeCompra && item.quantity > 0) {
+            const costPrice =
+              Number.parseFloat(item.importeCompra) / item.quantity;
+            newPrice = BigInt(Math.round(costPrice * 100));
+          }
           await updateProduct.mutateAsync({
             id: item.product.id,
             name: item.product.name,
-            price: item.product.price,
+            price: newPrice,
             barcode: item.product.barcode,
             stock: newStock,
           });
@@ -732,6 +754,7 @@ export default function EntradaMercancia({
           productName: item.product.name,
           quantity: item.quantity,
           unitPrice: Number(item.product.price),
+          importeCompra: Number.parseFloat(item.importeCompra ?? "0") || 0,
         })),
         tipoEntradaId: selectedTipo.id,
         tipoEntradaNombre: selectedTipo.name,
@@ -824,6 +847,28 @@ export default function EntradaMercancia({
                         Stock: {String(item.product.stock)} · $
                         {formatPrice(item.product.price)}
                       </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-xs text-muted-foreground">
+                          Importe: $
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="0.00"
+                          value={item.importeCompra ?? ""}
+                          onChange={(e) =>
+                            setCart((prev) =>
+                              prev.map((ci) =>
+                                ci.product.id === item.product.id
+                                  ? { ...ci, importeCompra: e.target.value }
+                                  : ci,
+                              ),
+                            )
+                          }
+                          className="w-20 px-1 py-0.5 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button

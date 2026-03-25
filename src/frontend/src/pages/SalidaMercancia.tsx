@@ -30,6 +30,7 @@ import { getAlmacenes } from "../utils/almacenes";
 import { registrarMovimiento } from "../utils/movimientos";
 import { addInsumo } from "../utils/produccion";
 import { getPuntosVenta } from "../utils/puntosVenta";
+import { upsertPVItem } from "../utils/pvInventory";
 import {
   type SalidaMercanciaTipo,
   getTiposSalida,
@@ -105,7 +106,6 @@ function QRScannerModal({
     stopScanning();
   }, [stopScanning]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: controlled by open
   useEffect(() => {
     if (open) handleOpen();
     else handleClose();
@@ -582,6 +582,19 @@ export default function SalidaMercancia() {
             "salida",
             item.quantity,
           );
+          // If destination is a Punto de Venta, add to PV inventory
+          if (selectedDestino.tipo === "puntoVenta") {
+            const meta = getProductMeta(item.product.id);
+            upsertPVItem(
+              selectedDestino.id,
+              selectedDestino.nombre,
+              item.product.barcode || "",
+              item.product.name,
+              meta.unit || "Unidad",
+              Number(item.product.price),
+              item.quantity,
+            );
+          }
         }
       }
 

@@ -22,9 +22,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  Calendar,
+  CalendarDays,
+  Calendar as CalendarIcon,
   DollarSign,
   FileDown,
+  LayoutGrid,
+  LayoutList,
   MoreVertical,
   Package,
   Receipt,
@@ -35,6 +38,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import React from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Customer, PaymentType, Product, Sale } from "../backend.d";
@@ -338,7 +342,7 @@ function SearchModal({
                 Fecha desde
               </Label>
               <div className="relative">
-                <Calendar
+                <CalendarIcon
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 />
@@ -359,7 +363,7 @@ function SearchModal({
                 Fecha hasta
               </Label>
               <div className="relative">
-                <Calendar
+                <CalendarIcon
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 />
@@ -471,6 +475,10 @@ export default function Ventas() {
     amountMax: "",
     customer: "",
   });
+  const [ventasSearchText, setVentasSearchText] = useState("");
+  const [ventasViewMode, setVentasViewMode] = useState<"list" | "grid">("list");
+  const ventasDateInputRef = React.useRef<HTMLInputElement>(null);
+  const [ventasSelectedDate, setVentasSelectedDate] = useState("");
 
   const filteredSales = useMemo(() => {
     let result = [...sales].sort((a, b) => Number(b.date) - Number(a.date));
@@ -497,8 +505,33 @@ export default function Ventas() {
       const max = Number.parseFloat(filters.amountMax) * 100;
       result = result.filter((s) => Number(s.totalAmount) <= max);
     }
+    if (ventasSearchText.trim()) {
+      const q = ventasSearchText.toLowerCase();
+      result = result.filter(
+        (s) =>
+          getCustomerName(s.customerId, customers).toLowerCase().includes(q) ||
+          getPaymentName(s.paymentTypeId, paymentTypes)
+            .toLowerCase()
+            .includes(q),
+      );
+    }
+    if (ventasSelectedDate) {
+      result = result.filter((s) => {
+        const dateStr = new Date(Number(s.date) / 1_000_000)
+          .toISOString()
+          .split("T")[0];
+        return dateStr === ventasSelectedDate;
+      });
+    }
     return result;
-  }, [sales, customers, filters]);
+  }, [
+    sales,
+    customers,
+    paymentTypes,
+    filters,
+    ventasSearchText,
+    ventasSelectedDate,
+  ]);
 
   const hasFilters = Object.values(filters).some(Boolean);
 
@@ -571,35 +604,95 @@ export default function Ventas() {
 
   return (
     <div className="px-4 pb-6 pt-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          {hasFilters && (
-            <span className="text-xs bg-teal/20 text-teal px-2 py-0.5 rounded-full font-medium">
-              Filtrado
-            </span>
-          )}
-          <span className="text-sm text-muted-foreground">
-            {filteredSales.length} venta{filteredSales.length !== 1 ? "s" : ""}
-          </span>
+      {/* Unified Toolbar */}
+      <div className="flex items-center gap-2 mb-3">
+        {/* Search input */}
+        <div className="relative flex-1">
+          <Search
+            size={13}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder="Buscar venta..."
+            value={ventasSearchText}
+            onChange={(e) => setVentasSearchText(e.target.value)}
+            className="pl-7 h-9 text-xs"
+          />
         </div>
+        {/* Calendar */}
+        <div className="relative shrink-0">
+          <Button
+            variant={ventasSelectedDate ? "default" : "outline"}
+            size="sm"
+            className="h-9 px-2"
+            onClick={() =>
+              ventasDateInputRef.current?.showPicker?.() ??
+              ventasDateInputRef.current?.click()
+            }
+          >
+            <CalendarDays size={15} />
+            {ventasSelectedDate && (
+              <span className="ml-1 text-xs">
+                {new Date(`${ventasSelectedDate}T00:00:00`).toLocaleDateString(
+                  "es-ES",
+                  { day: "2-digit", month: "2-digit" },
+                )}
+              </span>
+            )}
+          </Button>
+          <input
+            ref={ventasDateInputRef}
+            type="date"
+            style={{
+              position: "absolute",
+              width: 0,
+              height: 0,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            max={new Date().toISOString().split("T")[0]}
+            value={ventasSelectedDate}
+            onChange={(e) => setVentasSelectedDate(e.target.value)}
+          />
+          {ventasSelectedDate && (
+            <button
+              type="button"
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-destructive text-white rounded-full text-[9px] flex items-center justify-center z-10"
+              onClick={() => setVentasSelectedDate("")}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {/* View toggle */}
+        <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
+          <button
+            type="button"
+            onClick={() => setVentasViewMode("list")}
+            className={`p-2 transition-colors ${ventasViewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutList size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setVentasViewMode("grid")}
+            className={`p-2 transition-colors ${ventasViewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <LayoutGrid size={15} />
+          </button>
+        </div>
+        {/* Three-dot menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              className="p-2 h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted transition-colors border border-border"
               data-ocid="ventas.dropdown_menu"
             >
-              <MoreVertical size={18} className="text-muted-foreground" />
+              <MoreVertical size={15} className="text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem
-              onClick={() => setShowSearch(true)}
-              data-ocid="ventas.search_button"
-            >
-              <Search size={14} className="mr-2" /> Buscar venta
-            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={exportCSV}
               data-ocid="ventas.export_csv_button"
@@ -615,6 +708,14 @@ export default function Ventas() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        {filteredSales.length} venta{filteredSales.length !== 1 ? "s" : ""}
+        {(hasFilters || ventasSearchText || ventasSelectedDate) && (
+          <span className="ml-2 text-xs bg-teal/20 text-teal px-2 py-0.5 rounded-full font-medium">
+            Filtrado
+          </span>
+        )}
+      </p>
 
       {/* Sales list */}
       {isLoading ? (
@@ -649,6 +750,37 @@ export default function Ventas() {
               Limpiar filtros
             </button>
           )}
+        </div>
+      ) : ventasViewMode === "grid" ? (
+        <div className="grid grid-cols-2 gap-2">
+          {filteredSales.map((sale, idx) => (
+            <button
+              type="button"
+              key={String(sale.id)}
+              data-ocid={`ventas.item.${idx + 1}`}
+              onClick={() => {
+                setSelectedSale(sale);
+                setShowDetail(true);
+              }}
+              className="bg-card rounded-xl p-3 shadow-xs border border-border hover:shadow-card transition-shadow text-left flex flex-col gap-1"
+            >
+              <div className="w-9 h-9 rounded-lg bg-teal/15 flex items-center justify-center mb-1">
+                <Receipt size={16} className="text-teal" />
+              </div>
+              <p className="font-semibold text-xs truncate">
+                {getCustomerName(sale.customerId, customers)}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {getPaymentName(sale.paymentTypeId, paymentTypes)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatDate(sale.date)}
+              </p>
+              <p className="text-sm font-bold text-teal mt-auto">
+                ${formatPrice(sale.totalAmount)}
+              </p>
+            </button>
+          ))}
         </div>
       ) : (
         <div className="space-y-2">

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +9,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -18,14 +24,21 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft,
+  ArrowLeftRight,
   Barcode,
+  BookOpen,
+  CalendarDays,
   ChevronRight,
   FileDown,
   FileUp,
+  Filter,
+  History,
   LayoutGrid,
   LayoutList,
   MoreVertical,
   Package,
+  PackageMinus,
+  PackagePlus,
   Pencil,
   Plus,
   Search,
@@ -35,6 +48,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
+import AddProductoWindow from "../components/AddProductoWindow";
+import CatalogProductForm from "../components/CatalogProductForm";
 import {
   useCreateProduct,
   useDeleteProduct,
@@ -47,19 +62,6 @@ import { getEntradas } from "../utils/entradas";
 import { getSalidas } from "../utils/salidas";
 import EntradaMercancia from "./EntradaMercancia";
 import SalidaMercancia from "./SalidaMercancia";
-
-const DEFAULT_UNITS = [
-  "Unidad",
-  "Kg",
-  "g",
-  "L",
-  "mL",
-  "m",
-  "cm",
-  "Caja",
-  "Paquete",
-  "Docena",
-];
 
 // ---------- LocalStorage helpers ----------
 interface ProductMeta {
@@ -137,257 +139,6 @@ function parseXLSText(text: string): string[][] {
     rows.push(cells);
   }
   return rows;
-}
-
-// ---------- AddUnitInline ----------
-function AddUnitInline({ onAdd }: { onAdd: (unit: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
-
-  const handleConfirm = () => {
-    const trimmed = value.trim();
-    if (trimmed) {
-      onAdd(trimmed);
-      setValue("");
-      setOpen(false);
-    }
-  };
-
-  if (!open) {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="h-10 w-10 shrink-0"
-        onClick={() => setOpen(true)}
-        data-ocid="inventario.unit.button"
-      >
-        <Plus size={16} />
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <Input
-        className="h-10 w-24 text-sm"
-        placeholder="Nueva..."
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
-        autoFocus
-        data-ocid="inventario.unit.input"
-      />
-      <Button
-        type="button"
-        size="sm"
-        className="h-10 px-2 text-xs"
-        onClick={handleConfirm}
-        data-ocid="inventario.unit.save_button"
-      >
-        OK
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-10 px-2 text-xs"
-        onClick={() => setOpen(false)}
-        data-ocid="inventario.unit.cancel_button"
-      >
-        ✕
-      </Button>
-    </div>
-  );
-}
-
-// ---------- Product Form Screen (simplified: only 3 fields) ----------
-function ProductFormScreen({
-  onClose,
-  editProduct,
-  onSaved,
-  initialAlmacenId,
-}: {
-  onClose: () => void;
-  editProduct?: Product | null;
-  onSaved?: () => void;
-  initialAlmacenId?: string;
-}) {
-  const isEditing = !!editProduct;
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
-
-  const [nombre, setNombre] = useState("");
-  const [codigo, setCodigo] = useState("");
-  const [units, setUnits] = useState<string[]>(DEFAULT_UNITS);
-  const [selectedUnit, setSelectedUnit] = useState("Unidad");
-
-  useEffect(() => {
-    // eslint-disable-next-line
-    if (editProduct) {
-      setNombre(editProduct.name);
-      setCodigo(editProduct.barcode);
-      const meta = getProductMeta(editProduct.id);
-      const savedUnit = meta.unit || "Unidad";
-      setSelectedUnit(savedUnit);
-      if (!DEFAULT_UNITS.includes(savedUnit)) {
-        setUnits((prev) =>
-          prev.includes(savedUnit) ? prev : [...prev, savedUnit],
-        );
-      }
-    } else {
-      setNombre("");
-      setCodigo("");
-      setSelectedUnit("Unidad");
-      setUnits(DEFAULT_UNITS);
-    }
-  }, [editProduct]);
-
-  const handleAddUnit = (unit: string) => {
-    setUnits((prev) => [...prev, unit]);
-    setSelectedUnit(unit);
-  };
-
-  const handleGuardar = async () => {
-    if (!nombre.trim()) {
-      toast.error("El nombre del producto es obligatorio");
-      return;
-    }
-    try {
-      if (isEditing && editProduct) {
-        await updateProduct.mutateAsync({
-          id: editProduct.id,
-          name: nombre.trim(),
-          price: editProduct.price,
-          barcode: codigo.trim(),
-          stock: editProduct.stock,
-        });
-        const existingMeta = getProductMeta(editProduct.id);
-        setProductMeta(editProduct.id, {
-          ...existingMeta,
-          unit: selectedUnit,
-        });
-        toast.success("Producto actualizado");
-      } else {
-        const newId = await createProduct.mutateAsync({
-          name: nombre.trim(),
-          price: BigInt(0),
-          barcode: codigo.trim(),
-          stock: BigInt(0),
-        });
-        setProductMeta(newId, {
-          image: null,
-          unit: selectedUnit,
-          ubicacionTipo: initialAlmacenId ? "almacen" : "none",
-          ubicacionId: initialAlmacenId ?? "",
-        });
-        toast.success("Producto guardado");
-      }
-      onSaved?.();
-      onClose();
-    } catch (err) {
-      toast.error(
-        `Error: ${err instanceof Error ? err.message : "Error desconocido"}`,
-      );
-    }
-  };
-
-  const isPending = createProduct.isPending || updateProduct.isPending;
-
-  return (
-    <div className="h-full flex flex-col" data-ocid="inventario.dialog">
-      <div className="flex items-center px-4 py-3 border-b border-border shrink-0">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-2 text-sm font-medium text-foreground"
-        >
-          <ArrowLeft size={18} />
-          {isEditing ? "Editar producto" : "Agregar producto"}
-        </button>
-      </div>
-
-      <ScrollArea className="flex-1 overflow-auto">
-        <div className="px-5 pb-6 space-y-5 pt-4">
-          {/* Nombre */}
-          <div className="space-y-1.5">
-            <Label htmlFor="nombre">
-              Nombre del Producto <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="nombre"
-              placeholder="Ej. Arroz 1kg"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              data-ocid="inventario.input"
-            />
-          </div>
-
-          {/* Código */}
-          <div className="space-y-1.5">
-            <Label htmlFor="codigo">Código del producto</Label>
-            <Input
-              id="codigo"
-              placeholder="Ej. 001"
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              data-ocid="inventario.search_input"
-            />
-          </div>
-
-          {/* Unidad de medida */}
-          <div className="space-y-1.5">
-            <Label>Unidad de medida</Label>
-            <div className="flex gap-2 items-center">
-              <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                <SelectTrigger
-                  className="flex-1"
-                  data-ocid="inventario.unit.select"
-                >
-                  <SelectValue placeholder="Unidad" />
-                </SelectTrigger>
-                <SelectContent>
-                  {units.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <AddUnitInline onAdd={handleAddUnit} />
-            </div>
-          </div>
-
-          {/* Botones */}
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-              data-ocid="inventario.cancel_button"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              className="flex-1"
-              onClick={handleGuardar}
-              disabled={isPending}
-              data-ocid="inventario.submit_button"
-            >
-              {isPending
-                ? "Guardando..."
-                : isEditing
-                  ? "Actualizar"
-                  : "Guardar"}
-            </Button>
-          </div>
-        </div>
-      </ScrollArea>
-    </div>
-  );
 }
 
 // ---------- Warehouse Detail Screen ----------
@@ -608,14 +359,17 @@ function WarehouseDetailScreen({
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col relative">
         {showAddProduct ? (
-          <ProductFormScreen
-            onClose={() => setShowAddProduct(false)}
-            onSaved={() => {
-              setShowAddProduct(false);
-              onForceUpdate();
-            }}
-            initialAlmacenId={almacen.id}
-          />
+          <div className="absolute inset-0 bg-background z-20 flex flex-col">
+            <AddProductoWindow
+              mode="almacen"
+              onClose={() => setShowAddProduct(false)}
+              onSaved={() => {
+                setShowAddProduct(false);
+                onForceUpdate();
+              }}
+              initialAlmacenId={almacen.id}
+            />
+          </div>
         ) : (
           <>
             <ScrollArea className="flex-1">
@@ -690,6 +444,13 @@ function WarehouseDetailScreen({
 // ---------- Historial de Movimientos ----------
 function HistorialMovimientos() {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [filterText, setFilterText] = useState("");
+  const [filterTipo, setFilterTipo] = useState<"todos" | "entrada" | "salida">(
+    "todos",
+  );
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const entradas = getEntradas();
   const salidas = getSalidas();
@@ -705,7 +466,7 @@ function HistorialMovimientos() {
     items: { productName: string; quantity: number; unitPrice: number }[];
   };
 
-  const movimientos: MovimientoItem[] = [
+  const allMovimientos: MovimientoItem[] = [
     ...entradas.map((e) => ({
       id: e.id,
       date: e.date,
@@ -736,7 +497,71 @@ function HistorialMovimientos() {
     })),
   ].sort((a, b) => b.date - a.date);
 
-  if (movimientos.length === 0) {
+  const movimientos = allMovimientos.filter((mov) => {
+    if (filterTipo !== "todos" && mov.tipo !== filterTipo) return false;
+    if (selectedDate) {
+      const movDate = new Date(mov.date);
+      if (
+        movDate.getFullYear() !== selectedDate.getFullYear() ||
+        movDate.getMonth() !== selectedDate.getMonth() ||
+        movDate.getDate() !== selectedDate.getDate()
+      )
+        return false;
+    }
+    if (filterText.trim()) {
+      const q = filterText.toLowerCase();
+      if (
+        !mov.destinoNombre.toLowerCase().includes(q) &&
+        !mov.tipoNombre.toLowerCase().includes(q) &&
+        !mov.items.some((i) => i.productName.toLowerCase().includes(q))
+      )
+        return false;
+    }
+    return true;
+  });
+
+  const exportCSV = () => {
+    const rows = movimientos.map((mov) =>
+      [
+        mov.tipo === "entrada" ? "Entrada" : "Salida",
+        mov.tipoNombre,
+        mov.destinoNombre,
+        new Date(mov.date).toLocaleDateString("es-ES"),
+        mov.numProductos,
+        (mov.totalValor / 100).toFixed(2),
+        mov.items.map((i) => `${i.productName}(x${i.quantity})`).join("; "),
+      ].join(","),
+    );
+    const csv = [
+      "Tipo,Categoría,Destino,Fecha,Productos,Importe,Detalle",
+      ...rows,
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `historial_movimientos_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const rows = movimientos
+      .map(
+        (mov) =>
+          `<tr><td>${mov.tipo === "entrada" ? "Entrada" : "Salida"}</td><td>${mov.tipoNombre}</td><td>${mov.destinoNombre}</td><td>${new Date(mov.date).toLocaleDateString("es-ES")}</td><td>${mov.numProductos}</td><td>$${(mov.totalValor / 100).toFixed(2)}</td></tr>`,
+      )
+      .join("");
+    const html = `<html><head><title>Historial de Movimientos</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}</style></head><body><h2>Historial de Movimientos</h2><table><thead><tr><th>Tipo</th><th>Categoría</th><th>Destino</th><th>Fecha</th><th>#Prod</th><th>Importe</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.print();
+    }
+  };
+
+  if (allMovimientos.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center py-16 px-4">
         <div
@@ -759,86 +584,249 @@ function HistorialMovimientos() {
   }
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="px-4 py-3 space-y-2">
-        {movimientos.map((mov, idx) => (
-          <div
-            key={mov.id}
-            data-ocid={`inventario.historial.item.${idx + 1}`}
-            className="bg-card border border-border rounded-xl overflow-hidden shadow-xs"
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Toolbar */}
+      <div className="px-4 pt-3 pb-2 space-y-2 shrink-0">
+        <div className="flex items-center gap-2">
+          {/* Search input - BEFORE filter */}
+          <div className="relative flex-1">
+            <Search
+              size={13}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              placeholder="Buscar..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="pl-7 h-9 text-xs"
+            />
+          </div>
+
+          {/* Filter by tipo */}
+          <Select
+            value={filterTipo}
+            onValueChange={(v) =>
+              setFilterTipo(v as "todos" | "entrada" | "salida")
+            }
           >
-            <button
-              type="button"
-              onClick={() => setExpanded(expanded === mov.id ? null : mov.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      mov.tipo === "entrada"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-orange-100 text-orange-700"
-                    }`}
-                  >
-                    {mov.tipo === "entrada" ? "Entrada" : "Salida"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {mov.tipoNombre}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <p className="text-sm font-medium truncate">
-                    {mov.destinoNombre}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(mov.date).toLocaleDateString("es-ES", {
+            <SelectTrigger className="h-9 text-xs w-[110px] shrink-0">
+              <Filter size={13} className="mr-1 shrink-0" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="entrada">Entradas</SelectItem>
+              <SelectItem value="salida">Salidas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Calendar picker */}
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={selectedDate ? "default" : "outline"}
+                size="sm"
+                className="h-9 px-2 shrink-0"
+              >
+                <CalendarDays size={15} />
+                {selectedDate && (
+                  <span className="ml-1 text-xs">
+                    {selectedDate.toLocaleDateString("es-ES", {
                       day: "2-digit",
                       month: "2-digit",
-                      year: "numeric",
                     })}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {mov.numProductos} producto
-                    {mov.numProductos !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-xs font-semibold text-teal ml-auto">
-                    ${(mov.totalValor / 100).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <ChevronRight
-                size={16}
-                className={`text-muted-foreground shrink-0 transition-transform ${
-                  expanded === mov.id ? "rotate-90" : ""
-                }`}
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => {
+                  setSelectedDate(d);
+                  setCalendarOpen(false);
+                }}
+                initialFocus
               />
-            </button>
-
-            {expanded === mov.id && (
-              <div className="border-t border-border px-4 py-3 space-y-1.5 bg-muted/30">
-                {mov.items.map((item, i) => (
-                  <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: stable list
-                    key={i}
-                    className="flex items-center justify-between text-sm"
+              {selectedDate && (
+                <div className="p-2 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setSelectedDate(undefined)}
                   >
-                    <span className="text-foreground truncate flex-1 mr-2">
-                      {item.productName}
-                    </span>
-                    <span className="text-muted-foreground text-xs shrink-0">
-                      x{item.quantity} · ${(item.unitPrice / 100).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+                    Quitar filtro de fecha
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+
+          {/* View toggle */}
+          <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              <LayoutList size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`p-2 transition-colors ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              <LayoutGrid size={15} />
+            </button>
           </div>
-        ))}
+
+          {/* Export menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 shrink-0"
+              >
+                <MoreVertical size={15} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportCSV}>
+                <FileDown size={14} className="mr-2" /> Exportar CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPDF}>
+                <FileDown size={14} className="mr-2" /> Exportar PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {movimientos.length} movimiento{movimientos.length !== 1 ? "s" : ""}
+        </p>
       </div>
-    </ScrollArea>
+
+      {movimientos.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center py-8 px-4">
+          <div className="text-center">
+            <Package
+              size={32}
+              className="mx-auto text-muted-foreground/30 mb-2"
+            />
+            <p className="text-muted-foreground text-sm">Sin resultados</p>
+          </div>
+        </div>
+      ) : viewMode === "list" ? (
+        <ScrollArea className="flex-1">
+          <div className="px-4 py-2 space-y-2">
+            {movimientos.map((mov, idx) => (
+              <div
+                key={mov.id}
+                data-ocid={`inventario.historial.item.${idx + 1}`}
+                className="bg-card border border-border rounded-xl overflow-hidden shadow-xs"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpanded(expanded === mov.id ? null : mov.id)
+                  }
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${mov.tipo === "entrada" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}
+                      >
+                        {mov.tipo === "entrada" ? "Entrada" : "Salida"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {mov.tipoNombre}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium truncate mt-1">
+                      {mov.destinoNombre}
+                    </p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(mov.date).toLocaleDateString("es-ES", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {mov.numProductos} prod.
+                      </span>
+                      <span className="text-xs font-semibold ml-auto">
+                        ${(mov.totalValor / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className={`text-muted-foreground shrink-0 transition-transform ${expanded === mov.id ? "rotate-90" : ""}`}
+                  />
+                </button>
+                {expanded === mov.id && (
+                  <div className="border-t border-border px-4 py-3 space-y-1.5 bg-muted/30">
+                    {mov.items.map((item) => (
+                      <div
+                        key={`${item.productName}-${item.quantity}`}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-foreground truncate flex-1 mr-2">
+                          {item.productName}
+                        </span>
+                        <span className="text-muted-foreground text-xs shrink-0">
+                          x{item.quantity} · $
+                          {(item.unitPrice / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      ) : (
+        <ScrollArea className="flex-1">
+          <div className="px-4 py-2 grid grid-cols-2 gap-2">
+            {movimientos.map((mov, idx) => (
+              <div
+                key={mov.id}
+                data-ocid={`inventario.historial.grid.${idx + 1}`}
+                className="bg-card border border-border rounded-xl p-3 shadow-xs flex flex-col gap-1"
+              >
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full self-start ${mov.tipo === "entrada" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}
+                >
+                  {mov.tipo === "entrada" ? "Entrada" : "Salida"}
+                </span>
+                <p className="text-xs font-medium truncate mt-1">
+                  {mov.destinoNombre}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {mov.tipoNombre}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(mov.date).toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </p>
+                <p className="text-xs font-semibold mt-auto">
+                  ${(mov.totalValor / 100).toFixed(2)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
   );
 }
 
@@ -939,9 +927,21 @@ function AlmacenesTab() {
 
 // ---------- Tab definitions ----------
 const INV_TABS = [
-  { id: "catalogo" as const, label: "Catálogo de Productos" },
-  { id: "movimientos" as const, label: "Movimientos" },
-  { id: "almacenes" as const, label: "Almacenes" },
+  {
+    id: "catalogo" as const,
+    label: "Catálogo de Productos",
+    icon: <BookOpen size={14} />,
+  },
+  {
+    id: "movimientos" as const,
+    label: "Movimientos",
+    icon: <ArrowLeftRight size={14} />,
+  },
+  {
+    id: "almacenes" as const,
+    label: "Almacenes",
+    icon: <Warehouse size={14} />,
+  },
 ];
 
 type InvTabId = "catalogo" | "movimientos" | "almacenes";
@@ -966,9 +966,10 @@ export default function Inventario({
   const [showProductScreen, setShowProductScreen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const [, forceUpdate] = useState(0);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [catalogCalendarOpen, setCatalogCalendarOpen] = useState(false);
+  const [catalogDate, setCatalogDate] = useState<Date | undefined>(undefined);
   const [internalTab, setInternalTab] = useState<InvTabId>("catalogo");
   const [movimientosTab, setMovimientosTab] = useState<
     "historial" | "entrada" | "salida"
@@ -1212,70 +1213,117 @@ export default function Inventario({
   return (
     <div className="flex flex-col flex-1 overflow-hidden relative">
       {/* Tab bar */}
-      <div className="flex border-b border-border bg-background shrink-0 overflow-x-auto">
-        {INV_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            data-ocid={`inventario.${tab.id}.tab`}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-shrink-0 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === tab.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="border-b border-border bg-background shrink-0">
+        <div
+          className="flex overflow-x-auto scrollbar-hide"
+          data-ocid="inventario.tab"
+        >
+          {INV_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              data-ocid={`inventario.${tab.id}.tab`}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 shrink-0 ${
+                activeTab === tab.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab: Catálogo de Productos */}
       {activeTab === "catalogo" && (
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-6 pt-4 flex-1 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4 shrink-0">
-              <p className="text-sm text-muted-foreground">
-                {filteredProducts.length} productos en catálogo
-              </p>
-              <div className="flex items-center gap-1 ml-auto mr-1">
+            {/* Unified Toolbar */}
+            <div className="flex items-center gap-2 mb-3 shrink-0">
+              {/* Search input */}
+              <div className="relative flex-1">
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o código..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-9 border border-border rounded-lg pl-7 pr-3 text-xs bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              {/* Calendar picker */}
+              <Popover
+                open={catalogCalendarOpen}
+                onOpenChange={setCatalogCalendarOpen}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={catalogDate ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 px-2 shrink-0"
+                  >
+                    <CalendarDays size={15} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={catalogDate}
+                    onSelect={(d) => {
+                      setCatalogDate(d);
+                      setCatalogCalendarOpen(false);
+                    }}
+                    initialFocus
+                  />
+                  {catalogDate && (
+                    <div className="p-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setCatalogDate(undefined)}
+                      >
+                        Quitar filtro
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {/* View toggle */}
+              <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    viewMode === "list"
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
+                  className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
                 >
-                  <LayoutList size={16} />
+                  <LayoutList size={15} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    viewMode === "grid"
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
+                  className={`p-2 transition-colors ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
                 >
-                  <LayoutGrid size={16} />
+                  <LayoutGrid size={15} />
                 </button>
               </div>
+              {/* Three-dot menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="p-2 rounded-lg hover:bg-muted transition-colors"
+                    className="p-2 h-9 w-9 flex items-center justify-center rounded-lg hover:bg-muted transition-colors border border-border"
                     data-ocid="inventario.dropdown_menu"
                   >
-                    <MoreVertical size={18} className="text-muted-foreground" />
+                    <MoreVertical size={15} className="text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setShowSearch(!showSearch)}>
-                    <Search size={14} className="mr-2" /> Buscar
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => fileInputRef2.current?.click()}
                   >
@@ -1310,17 +1358,9 @@ export default function Inventario({
                 onChange={importXLS}
               />
             </div>
-            {showSearch && (
-              <div className="mb-3 shrink-0">
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o código..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground mb-3 shrink-0">
+              {filteredProducts.length} productos en catálogo
+            </p>
             <ScrollArea className="flex-1">
               {isLoading ? (
                 <div className="space-y-3" data-ocid="inventario.loading_state">
@@ -1470,7 +1510,7 @@ export default function Inventario({
           {/* Product form overlay */}
           {showProductScreen && (
             <div className="absolute inset-0 z-10 bg-background">
-              <ProductFormScreen
+              <CatalogProductForm
                 onClose={handleModalClose}
                 editProduct={editingProduct}
                 onSaved={() => {
@@ -1487,43 +1527,48 @@ export default function Inventario({
       {activeTab === "movimientos" && (
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* Sub-tab bar */}
-          <div className="flex border-b border-border bg-background shrink-0 overflow-x-auto">
-            <button
-              type="button"
-              data-ocid="inventario.historial.tab"
-              onClick={() => setMovimientosTab("historial")}
-              className={`flex-1 min-w-max px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
-                movimientosTab === "historial"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Historial
-            </button>
-            <button
-              type="button"
-              data-ocid="inventario.entrada.tab"
-              onClick={() => setMovimientosTab("entrada")}
-              className={`flex-1 min-w-max px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
-                movimientosTab === "entrada"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Entrada de Mercancía
-            </button>
-            <button
-              type="button"
-              data-ocid="inventario.salida.tab"
-              onClick={() => setMovimientosTab("salida")}
-              className={`flex-1 min-w-max px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
-                movimientosTab === "salida"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Salida de Mercancía
-            </button>
+          <div className="border-b border-border bg-background shrink-0">
+            <div className="flex overflow-x-auto scrollbar-hide">
+              <button
+                type="button"
+                data-ocid="inventario.historial.tab"
+                onClick={() => setMovimientosTab("historial")}
+                className={`flex items-center gap-1.5 flex-1 min-w-max px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  movimientosTab === "historial"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <History size={13} />
+                Historial
+              </button>
+              <button
+                type="button"
+                data-ocid="inventario.entrada.tab"
+                onClick={() => setMovimientosTab("entrada")}
+                className={`flex items-center gap-1.5 flex-1 min-w-max px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  movimientosTab === "entrada"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <PackagePlus size={13} />
+                Entrada de Mercancía
+              </button>
+              <button
+                type="button"
+                data-ocid="inventario.salida.tab"
+                onClick={() => setMovimientosTab("salida")}
+                className={`flex items-center gap-1.5 flex-1 min-w-max px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  movimientosTab === "salida"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <PackageMinus size={13} />
+                Salida de Mercancía
+              </button>
+            </div>
           </div>
           {movimientosTab === "historial" ? (
             <HistorialMovimientos />
