@@ -52,33 +52,37 @@ export default function AcercaDe() {
     licencia: {
       title: "Licencias",
       content:
-        "POS Mobile - Versión 1.0\n\nLicencia de uso personal y comercial.\n\nProhibida la redistribución o modificación sin autorización expresa del autor.\n\n© 2024-2026 POS Mobile. Todos los derechos reservados.",
+        "CUBANEXUS - Suite Empresarial Cubana\nVersión 1.0\n\nLicencia de uso personal y comercial.\n\nProhibida la redistribución o modificación sin autorización expresa del autor.\n\n© 2024-2026 CUBANEXUS. Todos los derechos reservados.",
     },
   };
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-8 py-10 text-center gap-6">
-      {/* App name and version */}
-      <div>
-        <h2 className="text-3xl font-bold text-foreground">POS Mobile</h2>
-        <p className="text-sm text-muted-foreground mt-1">Versión 1.0</p>
-      </div>
-
-      {/* POS Register image */}
-      <div className="w-44 h-44 flex items-center justify-center">
+      {/* Logo */}
+      <div className="w-56 flex items-center justify-center">
         <img
-          src="/assets/generated/pos-register-transparent.dim_200x200.png"
-          alt="POS Punto de Venta"
-          className="w-full h-full object-contain"
+          src="/assets/uploads/logo_de_la_aplicacio-019d2650-352c-73bc-9431-a61991f6a3b4-1.png"
+          alt="CUBANEXUS logo"
+          className="w-full object-contain"
         />
       </div>
 
-      {/* Copyright below image */}
-      <p className="text-sm text-muted-foreground -mt-2">
-        Punto de Venta 1.0 ©
+      {/* App name and version */}
+      <div className="-mt-2">
+        <p className="text-sm text-muted-foreground">
+          Suite Empresarial Cubana · Versión 1.0
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Base primaria para tu contabilidad
+        </p>
+      </div>
+
+      {/* Copyright */}
+      <p className="text-sm text-muted-foreground">
+        © 2024-2026 CUBANEXUS. Todos los derechos reservados.
       </p>
 
-      {/* Action buttons — icon + label */}
+      {/* Action buttons */}
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
           type="button"

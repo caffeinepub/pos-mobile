@@ -225,7 +225,7 @@ function AppInner() {
           <Menu size={22} />
         </button>
         <h1 className="text-white font-semibold text-lg tracking-tight flex-1">
-          POS Mobile
+          CUBANEXUS
         </h1>
       </header>
 
@@ -280,7 +280,7 @@ function AppInner() {
               aria-label="Menú lateral"
             >
               {/* Sidebar Header with Logo */}
-              <div className="relative flex flex-col items-center justify-center py-5 px-4 bg-navy border-b border-white/10 min-h-28">
+              <div className="relative flex flex-col items-center justify-center py-6 px-4 bg-navy border-b border-white/10 min-h-36">
                 <button
                   type="button"
                   data-ocid="nav.close_button"
@@ -291,12 +291,13 @@ function AppInner() {
                   <X size={18} />
                 </button>
                 <img
-                  src="/assets/generated/pos-register-transparent.dim_200x200.png"
-                  alt="POS Mobile logo"
-                  className="w-14 h-14 object-contain mb-2"
+                  src="/assets/generated/cubanexus-logo-transparent.dim_400x400.png"
+                  alt="CUBANEXUS logo"
+                  className="w-28 h-28 object-contain mb-2"
+                  style={{ mixBlendMode: "screen" }}
                 />
-                <span className="text-white font-bold text-base tracking-tight">
-                  POS Mobile
+                <span className="text-white font-bold text-base tracking-widest uppercase">
+                  CUBANEXUS
                 </span>
               </div>
 
