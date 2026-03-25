@@ -59,13 +59,18 @@ export default function AcercaDe() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-8 py-10 text-center gap-6">
       {/* Logo */}
-      <div className="w-56 flex items-center justify-center">
+      <div className="w-72 flex items-center justify-center">
         <img
-          src="/assets/uploads/logo_de_la_aplicacio-019d2650-352c-73bc-9431-a61991f6a3b4-1.png"
+          src="/assets/uploads/logo_solo-019d266c-6921-732f-9ae3-eb32e75b3fbe-1.png"
           alt="CUBANEXUS logo"
           className="w-full object-contain"
         />
       </div>
+
+      {/* App name - CUBANEXUS in black below logo */}
+      <p className="text-2xl font-bold text-black tracking-widest uppercase -mt-2">
+        CUBANEXUS
+      </p>
 
       {/* App name and version */}
       <div className="-mt-2">

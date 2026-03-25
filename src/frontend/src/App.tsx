@@ -291,10 +291,9 @@ function AppInner() {
                   <X size={18} />
                 </button>
                 <img
-                  src="/assets/generated/cubanexus-logo-transparent.dim_400x400.png"
+                  src="/assets/uploads/logo_solo-019d266c-6921-732f-9ae3-eb32e75b3fbe-1.png"
                   alt="CUBANEXUS logo"
-                  className="w-28 h-28 object-contain mb-2"
-                  style={{ mixBlendMode: "screen" }}
+                  className="w-36 h-36 object-contain mb-2"
                 />
                 <span className="text-white font-bold text-base tracking-widest uppercase">
                   CUBANEXUS
