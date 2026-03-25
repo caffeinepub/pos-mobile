@@ -225,7 +225,7 @@ function AppInner() {
           <Menu size={22} />
         </button>
         <h1 className="text-white font-semibold text-lg tracking-tight flex-1">
-          CUBANEXUS
+          RADIXGESTION
         </h1>
       </header>
 
@@ -291,12 +291,15 @@ function AppInner() {
                   <X size={18} />
                 </button>
                 <img
-                  src="/assets/uploads/logo_solo-019d266c-6921-732f-9ae3-eb32e75b3fbe-1.png"
-                  alt="CUBANEXUS logo"
-                  className="w-36 h-36 object-contain mb-2"
+                  src="/assets/generated/radixgestion-logo-transparent.png"
+                  alt="RADIXGESTION logo"
+                  className="w-32 h-32 object-contain mb-2"
                 />
-                <span className="text-white font-bold text-base tracking-widest uppercase">
-                  CUBANEXUS
+                <span className="text-white font-extrabold text-xl tracking-widest uppercase leading-none">
+                  RADIX
+                </span>
+                <span className="text-white font-semibold text-base tracking-widest uppercase mt-0.5">
+                  Gestion
                 </span>
               </div>
 

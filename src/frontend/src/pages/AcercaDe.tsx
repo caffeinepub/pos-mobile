@@ -52,30 +52,30 @@ export default function AcercaDe() {
     licencia: {
       title: "Licencias",
       content:
-        "CUBANEXUS - Suite Empresarial Cubana\nVersión 1.0\n\nLicencia de uso personal y comercial.\n\nProhibida la redistribución o modificación sin autorización expresa del autor.\n\n© 2024-2026 CUBANEXUS. Todos los derechos reservados.",
+        "RADIXGESTION - Suite Empresarial\nVersión 1.0\n\nLicencia de uso personal y comercial.\n\nProhibida la redistribución o modificación sin autorización expresa del autor.\n\n© 2024-2026 RADIXGESTION. Todos los derechos reservados.",
     },
   };
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center px-8 py-10 text-center gap-6">
       {/* Logo */}
-      <div className="w-72 flex items-center justify-center">
+      <div className="w-64 flex items-center justify-center">
         <img
-          src="/assets/uploads/logo_solo-019d266c-6921-732f-9ae3-eb32e75b3fbe-1.png"
-          alt="CUBANEXUS logo"
+          src="/assets/generated/radixgestion-logo-transparent.png"
+          alt="RADIXGESTION logo"
           className="w-full object-contain"
         />
       </div>
 
-      {/* App name - CUBANEXUS in black below logo */}
+      {/* App name */}
       <p className="text-2xl font-bold text-black tracking-widest uppercase -mt-2">
-        CUBANEXUS
+        RADIXGESTION
       </p>
 
-      {/* App name and version */}
+      {/* App description and version */}
       <div className="-mt-2">
         <p className="text-sm text-muted-foreground">
-          Suite Empresarial Cubana · Versión 1.0
+          Suite Empresarial · Versión 1.0
         </p>
         <p className="text-xs text-muted-foreground mt-1">
           Base primaria para tu contabilidad
@@ -84,7 +84,7 @@ export default function AcercaDe() {
 
       {/* Copyright */}
       <p className="text-sm text-muted-foreground">
-        © 2024-2026 CUBANEXUS. Todos los derechos reservados.
+        © 2024-2026 RADIXGESTION. Todos los derechos reservados.
       </p>
 
       {/* Action buttons */}
