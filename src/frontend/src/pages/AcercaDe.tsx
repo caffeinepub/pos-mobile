@@ -61,7 +61,7 @@ export default function AcercaDe() {
       {/* Logo */}
       <div className="w-64 flex items-center justify-center">
         <img
-          src="/assets/generated/radixgestion-logo-transparent.png"
+          src="/assets/uploads/logo_final-019d26e3-b9b6-76b4-8b80-f011ae311870-1.png"
           alt="RADIXGESTION logo"
           className="w-full object-contain"
         />
