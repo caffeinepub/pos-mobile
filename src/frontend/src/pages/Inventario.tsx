@@ -307,7 +307,7 @@ function WarehouseDetailScreen({
   };
 
   return (
-    <div className="absolute inset-0 z-10 bg-background flex flex-col">
+    <div className="fixed inset-0 z-40 bg-background flex flex-col">
       {/* Top bar */}
       <div className="flex items-center px-4 py-3 border-b border-border shrink-0">
         <button
@@ -359,7 +359,7 @@ function WarehouseDetailScreen({
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col relative">
         {showAddProduct ? (
-          <div className="absolute inset-0 bg-background z-20 flex flex-col">
+          <div className="fixed inset-0 bg-background z-50 flex flex-col">
             <AddProductoWindow
               mode="almacen"
               onClose={() => setShowAddProduct(false)}
@@ -1509,7 +1509,7 @@ export default function Inventario({
 
           {/* Product form overlay */}
           {showProductScreen && (
-            <div className="absolute inset-0 z-10 bg-background">
+            <div className="fixed inset-0 z-40 bg-background">
               <CatalogProductForm
                 onClose={handleModalClose}
                 editProduct={editingProduct}

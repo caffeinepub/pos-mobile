@@ -361,7 +361,7 @@ export default function InventarioPV() {
       </button>
 
       {showForm && (
-        <div className="absolute inset-0 bg-background z-20 flex flex-col">
+        <div className="fixed inset-0 bg-background z-50 flex flex-col">
           <AddProductoWindow
             mode="pv"
             onClose={() => {

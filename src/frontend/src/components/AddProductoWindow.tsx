@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
 import {
   Select,
   SelectContent,
@@ -521,7 +521,10 @@ export default function AddProductoWindow({
         </button>
       </div>
 
-      <ScrollArea className="flex-1" type="always">
+      <div
+        className="flex-1 overflow-y-scroll min-h-0"
+        style={{ scrollbarGutter: "stable" }}
+      >
         <div className="px-5 pb-8 space-y-5 pt-4">
           {/* Catalog search */}
           <div className="relative space-y-1.5">
@@ -846,8 +849,7 @@ export default function AddProductoWindow({
                 : "Guardar producto"}
           </Button>
         </div>
-        <ScrollBar orientation="vertical" />
-      </ScrollArea>
+      </div>
     </div>
   );
 }
