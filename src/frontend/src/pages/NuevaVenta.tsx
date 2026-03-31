@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -561,22 +562,39 @@ function CashPaymentDialog({
   setCashPaid: (v: string) => void;
   onConfirm: () => void;
 }) {
-  const cashPaidNum = Number.parseFloat(cashPaid) || 0;
+  const [exactPayment, setExactPayment] = useState(false);
+
+  const cashPaidNum = exactPayment ? total : Number.parseFloat(cashPaid) || 0;
   const change = cashPaidNum - total;
 
+  const handleExactChange = (checked: boolean) => {
+    setExactPayment(checked);
+    if (checked) {
+      setCashPaid(total.toFixed(2));
+    } else {
+      setCashPaid("");
+    }
+  };
+
   const handleConfirm = () => {
-    if (cashPaidNum < total) {
+    if (!exactPayment && cashPaidNum < total) {
       toast.error("El monto pagado es insuficiente");
       return;
     }
     onConfirm();
   };
 
+  // Reset exactPayment when dialog closes
+  const handleClose = () => {
+    setExactPayment(false);
+    onClose();
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        if (!v) onClose();
+        if (!v) handleClose();
       }}
     >
       <DialogContent
@@ -593,6 +611,26 @@ function CashPaymentDialog({
               ${total.toFixed(2)}
             </p>
           </div>
+
+          {/* Pago exacto checkbox */}
+          <label
+            htmlFor="exact-payment"
+            className="flex items-center gap-3 px-1 py-2 rounded-lg bg-muted/60 cursor-pointer"
+          >
+            <Checkbox
+              id="exact-payment"
+              checked={exactPayment}
+              onCheckedChange={(checked) => handleExactChange(checked === true)}
+              data-ocid="cash_payment.exact_payment.checkbox"
+            />
+            <span className="text-sm font-medium cursor-pointer select-none flex-1">
+              Pago exacto (sin cambio)
+            </span>
+            {exactPayment && (
+              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+            )}
+          </label>
+
           <div className="space-y-1.5">
             <Label className="text-sm">Monto pagado por el cliente</Label>
             <div className="relative">
@@ -604,34 +642,45 @@ function CashPaymentDialog({
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                value={cashPaid}
-                onChange={(e) => setCashPaid(e.target.value)}
-                className="pl-7"
-                autoFocus
+                value={exactPayment ? total.toFixed(2) : cashPaid}
+                onChange={(e) => {
+                  if (!exactPayment) setCashPaid(e.target.value);
+                }}
+                disabled={exactPayment}
+                className="pl-7 disabled:opacity-60"
+                autoFocus={!exactPayment}
                 data-ocid="cash_payment.cash_paid.input"
               />
             </div>
           </div>
+
           <div className="flex items-center justify-between px-1 py-2 rounded-lg bg-muted">
             <span className="text-sm font-medium">Cambio a devolver</span>
             <span
               className={`text-lg font-bold ${
-                cashPaidNum > 0
-                  ? change >= 0
-                    ? "text-green-600"
-                    : "text-red-500"
-                  : "text-muted-foreground"
+                exactPayment
+                  ? "text-green-600"
+                  : cashPaidNum > 0
+                    ? change >= 0
+                      ? "text-green-600"
+                      : "text-red-500"
+                    : "text-muted-foreground"
               }`}
             >
-              {cashPaidNum > 0 ? `$${change.toFixed(2)}` : "$0.00"}
+              {exactPayment
+                ? "$0.00"
+                : cashPaidNum > 0
+                  ? `$${change.toFixed(2)}`
+                  : "$0.00"}
             </span>
           </div>
+
           <div className="flex gap-2 pt-1">
             <Button
               type="button"
               variant="outline"
               className="flex-1"
-              onClick={onClose}
+              onClick={handleClose}
               data-ocid="cash_payment.cancel_button"
             >
               Cancelar
@@ -890,9 +939,9 @@ export default function NuevaVenta({
       </div>
 
       {/* Cart - scrollable area that fills available space */}
-      <div className="flex-1 overflow-hidden px-4 pt-4">
+      <div className="flex-1 overflow-hidden px-4 pt-3">
         <div className="h-full bg-card rounded-xl shadow-card border border-border overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
             <div className="flex items-center gap-2">
               <ShoppingCart size={16} className="text-teal" />
               <span className="font-semibold text-sm">Carrito</span>
@@ -906,7 +955,7 @@ export default function NuevaVenta({
 
           <div className="flex-1 overflow-y-auto">
             {cart.length === 0 ? (
-              <div className="py-10 text-center" data-ocid="cart.empty_state">
+              <div className="py-8 text-center" data-ocid="cart.empty_state">
                 <ShoppingCart
                   size={32}
                   className="mx-auto text-muted-foreground/40 mb-2"
@@ -919,7 +968,7 @@ export default function NuevaVenta({
                   <div
                     key={item.pvItem.id}
                     data-ocid={`cart.item.${idx + 1}`}
-                    className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0"
+                    className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0"
                   >
                     <ProductThumb productId={item.product?.id ?? null} />
                     <div className="flex-1 min-w-0">
@@ -969,7 +1018,7 @@ export default function NuevaVenta({
       {/* Fixed bottom bar */}
       <div className="shrink-0">
         {/* Action icons row - no background */}
-        <div className="flex items-center justify-around px-4 py-2">
+        <div className="flex items-center justify-around px-4 py-1.5">
           {/* Scan */}
           <button
             type="button"
@@ -1040,7 +1089,7 @@ export default function NuevaVenta({
         </div>
 
         {/* Navy box: total + cash fields + submit */}
-        <div className="bg-navy px-4 pt-3 pb-4 space-y-3">
+        <div className="bg-navy px-4 pt-2 pb-3 space-y-2">
           {/* Total */}
           <div className="flex items-center justify-between">
             <span className="text-white/80 font-medium text-sm">Total</span>
@@ -1051,7 +1100,7 @@ export default function NuevaVenta({
 
           {/* Cash fields when Efectivo is selected */}
           {isCash && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Separator className="bg-white/10" />
               <div className="flex items-center gap-3">
                 <Label className="text-white/70 text-xs w-28 shrink-0">
@@ -1068,7 +1117,7 @@ export default function NuevaVenta({
                     placeholder="0.00"
                     value={cashPaid}
                     onChange={(e) => setCashPaid(e.target.value)}
-                    className="pl-7 bg-white/10 border-white/20 text-white placeholder:text-white/30 h-9"
+                    className="pl-7 bg-white/10 border-white/20 text-white placeholder:text-white/30 h-8"
                     data-ocid="nueva_venta.cash_paid.input"
                   />
                 </div>
@@ -1097,7 +1146,7 @@ export default function NuevaVenta({
             type="button"
             onClick={handleRealizarVenta}
             disabled={createSale.isPending || cart.length === 0}
-            className="w-full h-12 bg-teal hover:bg-teal/90 text-white font-semibold text-base rounded-xl"
+            className="w-full h-11 bg-teal hover:bg-teal/90 text-white font-semibold text-base rounded-xl"
             data-ocid="nueva_venta.submit_button"
           >
             {createSale.isPending ? "Procesando..." : "Realizar Venta"}
