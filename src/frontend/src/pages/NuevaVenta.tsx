@@ -546,6 +546,112 @@ function PaymentTypeModal({
   );
 }
 
+function CashPaymentDialog({
+  open,
+  onClose,
+  total,
+  cashPaid,
+  setCashPaid,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  total: number;
+  cashPaid: string;
+  setCashPaid: (v: string) => void;
+  onConfirm: () => void;
+}) {
+  const cashPaidNum = Number.parseFloat(cashPaid) || 0;
+  const change = cashPaidNum - total;
+
+  const handleConfirm = () => {
+    if (cashPaidNum < total) {
+      toast.error("El monto pagado es insuficiente");
+      return;
+    }
+    onConfirm();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-sm mx-auto"
+        data-ocid="cash_payment.dialog"
+      >
+        <DialogHeader>
+          <DialogTitle>Pago en Efectivo</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="bg-muted rounded-xl px-4 py-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Total a cobrar</p>
+            <p className="text-3xl font-bold text-foreground">
+              ${total.toFixed(2)}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Monto pagado por el cliente</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                $
+              </span>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={cashPaid}
+                onChange={(e) => setCashPaid(e.target.value)}
+                className="pl-7"
+                autoFocus
+                data-ocid="cash_payment.cash_paid.input"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-1 py-2 rounded-lg bg-muted">
+            <span className="text-sm font-medium">Cambio a devolver</span>
+            <span
+              className={`text-lg font-bold ${
+                cashPaidNum > 0
+                  ? change >= 0
+                    ? "text-green-600"
+                    : "text-red-500"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {cashPaidNum > 0 ? `$${change.toFixed(2)}` : "$0.00"}
+            </span>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={onClose}
+              data-ocid="cash_payment.cancel_button"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 bg-teal hover:bg-teal/90 text-white"
+              onClick={handleConfirm}
+              data-ocid="cash_payment.confirm_button"
+            >
+              <CheckCircle2 size={16} className="mr-1.5" />
+              Confirmar y Realizar Venta
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function NuevaVenta({
   onNavigateToClientes,
 }: {
@@ -561,6 +667,7 @@ export default function NuevaVenta({
   const [showProducts, setShowProducts] = useState(false);
   const [showCustomers, setShowCustomers] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showCashDialog, setShowCashDialog] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
   const [puntosVenta, setPuntosVenta] = useState(() => getPuntosVenta());
   const [selectedPuntoVentaId, setSelectedPuntoVentaId] = useState(() =>
@@ -644,8 +751,16 @@ export default function NuevaVenta({
       toast.error("Seleccione un tipo de pago");
       return;
     }
+
+    // If cash payment and no amount entered yet, open the cash dialog
+    if (isCash && cashPaid.trim() === "") {
+      setShowCashDialog(true);
+      return;
+    }
+
+    // If cash payment and entered amount is insufficient
     if (isCash && cashPaidNum < totalPesos) {
-      toast.error("El monto pagado es menor al total de la venta");
+      toast.error("El monto pagado es insuficiente");
       return;
     }
 
@@ -655,49 +770,62 @@ export default function NuevaVenta({
     // Assign consecutive control number before saving
     const ctrlNum = getNextCtrlNum();
 
-    const saleResult = await createSale.mutateAsync({
-      customerId: selectedCustomer?.id ?? BigInt(0),
-      paymentTypeId: selectedPaymentType.id,
-      items: cart.map((item) => ({
-        // Use backend product id if available; 0 for products not in catalogue
-        productId: item.product?.id ?? BigInt(0),
-        quantity: BigInt(item.quantity),
-        // Always use pvItem.price as the selling price
-        unitPrice: BigInt(item.pvItem.price),
-      })),
-    });
+    try {
+      const saleResult = await createSale.mutateAsync({
+        customerId: selectedCustomer?.id ?? BigInt(0),
+        paymentTypeId: selectedPaymentType.id,
+        items: cart.map((item) => ({
+          // Use backend product id if available; 0 for products not in catalogue
+          productId: item.product?.id ?? BigInt(0),
+          quantity: BigInt(item.quantity),
+          // Always use pvItem.price as the selling price
+          unitPrice: BigInt(item.pvItem.price),
+        })),
+      });
 
-    if (saleResult !== undefined && saleResult !== null) {
-      const saleId = String(
-        typeof saleResult === "object" && "id" in saleResult
-          ? (saleResult as { id: unknown }).id
-          : saleResult,
+      if (saleResult !== undefined && saleResult !== null) {
+        const saleId = String(
+          typeof saleResult === "object" && "id" in saleResult
+            ? (saleResult as { id: unknown }).id
+            : saleResult,
+        );
+        const meta: SaleMeta = {
+          puntoVentaId: selectedPuntoVentaId,
+          puntoVentaName: pvName,
+          saleDate: selectedDate,
+          ctrlNum,
+        };
+        saveSaleMeta(saleId, meta);
+      }
+
+      // Reduce PV inventory stock for each sold item
+      for (const item of cart) {
+        reducePVStock(
+          selectedPuntoVentaId,
+          item.pvItem.productCode,
+          item.quantity,
+        );
+      }
+
+      toast.success(
+        `¡Venta No. Ctrl ${String(ctrlNum).padStart(4, "0")} realizada exitosamente!`,
       );
-      const meta: SaleMeta = {
-        puntoVentaId: selectedPuntoVentaId,
-        puntoVentaName: pvName,
-        saleDate: selectedDate,
-        ctrlNum,
-      };
-      saveSaleMeta(saleId, meta);
-    }
-
-    // Reduce PV inventory stock for each sold item
-    for (const item of cart) {
-      reducePVStock(
-        selectedPuntoVentaId,
-        item.pvItem.productCode,
-        item.quantity,
+      setCart([]);
+      setSelectedCustomer(null);
+      setSelectedPaymentType(null);
+      setCashPaid("");
+      setShowCashDialog(false);
+    } catch (e: any) {
+      toast.error(
+        `Error al guardar la venta: ${e?.message ?? "Error desconocido"}`,
       );
     }
+  };
 
-    toast.success(
-      `¡Venta No. Ctrl ${String(ctrlNum).padStart(4, "0")} realizada exitosamente!`,
-    );
-    setCart([]);
-    setSelectedCustomer(null);
-    setSelectedPaymentType(null);
-    setCashPaid("");
+  const handleConfirmCashSale = () => {
+    setShowCashDialog(false);
+    // Small timeout to let dialog close before proceeding
+    setTimeout(() => handleRealizarVenta(), 50);
   };
 
   return (
@@ -1003,8 +1131,21 @@ export default function NuevaVenta({
       <PaymentTypeModal
         open={showPayment}
         onClose={() => setShowPayment(false)}
-        onSelect={setSelectedPaymentType}
+        onSelect={(pt) => {
+          setSelectedPaymentType(pt);
+          if (pt.name.toLowerCase().trim() === "efectivo") {
+            setShowCashDialog(true);
+          }
+        }}
         paymentTypes={paymentTypes}
+      />
+      <CashPaymentDialog
+        open={showCashDialog}
+        onClose={() => setShowCashDialog(false)}
+        total={totalPesos}
+        cashPaid={cashPaid}
+        setCashPaid={setCashPaid}
+        onConfirm={handleConfirmCashSale}
       />
     </div>
   );
