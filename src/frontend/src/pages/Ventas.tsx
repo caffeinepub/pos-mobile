@@ -808,12 +808,21 @@ export default function Ventas() {
                 </p>
                 {(() => {
                   const meta = getSaleMeta(String(sale.id));
-                  return meta?.puntoVentaName ? (
-                    <p className="text-xs text-muted-foreground flex items-center gap-0.5 mt-0.5">
-                      <Store size={11} className="shrink-0" />
-                      {meta.puntoVentaName}
-                    </p>
-                  ) : null;
+                  return (
+                    <>
+                      {meta?.puntoVentaName && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                          <Store size={11} className="shrink-0" />
+                          {meta.puntoVentaName}
+                        </p>
+                      )}
+                      {meta?.ctrlNum != null && (
+                        <p className="text-xs font-semibold text-teal/80 mt-0.5">
+                          No. Ctrl: {String(meta.ctrlNum).padStart(4, "0")}
+                        </p>
+                      )}
+                    </>
+                  );
                 })()}
                 <p className="text-sm font-bold text-teal mt-0.5">
                   ${formatPrice(sale.totalAmount)}

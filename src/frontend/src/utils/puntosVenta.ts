@@ -6,6 +6,7 @@ export interface PuntoVenta {
 const KEY = "pos_puntos_venta";
 const SELECTED_KEY = "pos_selected_punto_venta";
 const SALE_META_KEY = "pos_sale_meta";
+const CTRL_NUM_KEY = "pos_ctrl_num";
 
 export function getPuntosVenta(): PuntoVenta[] {
   try {
@@ -45,10 +46,22 @@ export function saveSelectedPuntoVenta(id: string): void {
   localStorage.setItem(SELECTED_KEY, id);
 }
 
+/** Returns the next consecutive control number and increments the counter */
+export function getNextCtrlNum(): number {
+  const current = Number.parseInt(
+    localStorage.getItem(CTRL_NUM_KEY) ?? "0",
+    10,
+  );
+  const next = current + 1;
+  localStorage.setItem(CTRL_NUM_KEY, String(next));
+  return next;
+}
+
 export interface SaleMeta {
   puntoVentaId: string;
   puntoVentaName: string;
   saleDate: string;
+  ctrlNum?: number;
 }
 
 function getAllSaleMeta(): Record<string, SaleMeta> {

@@ -291,7 +291,7 @@ function AppInner() {
                   <X size={18} />
                 </button>
                 <img
-                  src="/assets/uploads/logo_final-019d26e3-b9b6-76b4-8b80-f011ae311870-1.png"
+                  src="/assets/uploads/logo_final_blanco-019d26fb-002e-761a-bfc1-b98229d72fc9-1.png"
                   alt="RADIXGESTION logo"
                   className="w-32 h-32 object-contain mb-2"
                 />

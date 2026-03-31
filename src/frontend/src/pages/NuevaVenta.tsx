@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertTriangle,
   Calendar as CalendarIcon,
   CheckCircle2,
   CreditCard,
@@ -40,6 +41,7 @@ import {
 import { useQRScanner } from "../qr-code/useQRScanner";
 import {
   type SaleMeta,
+  getNextCtrlNum,
   getPuntosVenta,
   getSelectedPuntoVenta,
   saveSaleMeta,
@@ -51,8 +53,11 @@ import {
   reducePVStock,
 } from "../utils/pvInventory";
 
+/** A cart item is always anchored to a PVInventoryItem (which carries pvPrice).
+ *  product may be null if it doesn't exist in the backend catalogue. */
 interface CartItem {
-  product: Product;
+  pvItem: PVInventoryItem;
+  product: Product | null;
   quantity: number;
 }
 
@@ -68,8 +73,8 @@ function getProductMeta(id: bigint): {
   return { image: null, unit: "Unidad" };
 }
 
-function ProductThumb({ productId }: { productId: bigint }) {
-  const meta = getProductMeta(productId);
+function ProductThumb({ productId }: { productId: bigint | null }) {
+  const meta = productId != null ? getProductMeta(productId) : { image: null };
   if (meta.image) {
     return (
       <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 border border-border">
@@ -88,8 +93,8 @@ function ProductThumb({ productId }: { productId: bigint }) {
   );
 }
 
-function formatPrice(price: bigint): string {
-  return (Number(price) / 100).toFixed(2);
+function formatPriceCents(cents: number): string {
+  return (cents / 100).toFixed(2);
 }
 
 function QRScannerModal({
@@ -214,7 +219,7 @@ function ProductPickerModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onAdd: (product: Product) => void;
+  onAdd: (pvItem: PVInventoryItem, product: Product | null) => void;
   pvInventoryItems: PVInventoryItem[];
   allProducts: Product[];
 }) {
@@ -270,41 +275,60 @@ function ProductPickerModal({
               </p>
             ) : (
               <div className="space-y-1">
-                {filtered.map((pvItem, idx) => (
-                  <button
-                    type="button"
-                    key={pvItem.id}
-                    data-ocid={`product_picker.item.${idx + 1}`}
-                    onClick={() => {
-                      const backendProduct = allProducts.find(
-                        (p) => p.barcode === pvItem.productCode,
-                      );
-                      if (!backendProduct) {
-                        toast.error("Producto no encontrado en catálogo");
-                        return;
-                      }
-                      onAdd(backendProduct);
-                      onClose();
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-lg bg-teal/10 flex items-center justify-center shrink-0">
-                        <Package size={14} className="text-teal" />
+                {filtered.map((pvItem, idx) => {
+                  const backendProduct =
+                    allProducts.find((p) => p.barcode === pvItem.productCode) ??
+                    null;
+                  const notInCatalog = backendProduct === null;
+                  return (
+                    <button
+                      type="button"
+                      key={pvItem.id}
+                      data-ocid={`product_picker.item.${idx + 1}`}
+                      onClick={() => {
+                        onAdd(pvItem, backendProduct);
+                        if (notInCatalog) {
+                          toast.warning(
+                            `"${pvItem.productName}" no está en el Catálogo. Recuerde agregarlo en Inventario > Catálogo de Productos.`,
+                            { duration: 6000 },
+                          );
+                        }
+                        onClose();
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${notInCatalog ? "bg-amber-100" : "bg-teal/10"}`}
+                        >
+                          {notInCatalog ? (
+                            <AlertTriangle
+                              size={14}
+                              className="text-amber-500"
+                            />
+                          ) : (
+                            <Package size={14} className="text-teal" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            {pvItem.productName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Stock: {pvItem.stock} · $
+                            {formatPriceCents(pvItem.price)}
+                            {notInCatalog && (
+                              <span className="ml-1 text-amber-500 font-medium">
+                                · Sin catálogo
+                              </span>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">
-                          {pvItem.productName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Stock: {pvItem.stock} · $
-                          {(pvItem.price / 100).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    <Plus size={16} className="text-teal shrink-0" />
-                  </button>
-                ))}
+                      <Plus size={16} className="text-teal shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
@@ -552,25 +576,29 @@ export default function NuevaVenta({
   const { data: paymentTypes = [] } = usePaymentTypes();
   const createSale = useCreateSale();
 
-  const addToCart = (product: Product) => {
+  /** Add or increment a PV item in the cart. Uses pvItem.id as key. */
+  const addPVItemToCart = (
+    pvItem: PVInventoryItem,
+    product: Product | null,
+  ) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+      const existing = prev.find((item) => item.pvItem.id === pvItem.id);
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id
+          item.pvItem.id === pvItem.id
             ? { ...item, quantity: item.quantity + 1 }
             : item,
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { pvItem, product, quantity: 1 }];
     });
   };
 
-  const updateQty = (productId: bigint, delta: number) => {
+  const updateQty = (pvItemId: string, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) =>
-          item.product.id === productId
+          item.pvItem.id === pvItemId
             ? { ...item, quantity: item.quantity + delta }
             : item,
         )
@@ -579,17 +607,26 @@ export default function NuevaVenta({
   };
 
   const handleQRScan = (code: string) => {
-    const product = products.find((p) => p.barcode === code);
-    if (product) {
-      addToCart(product);
-      toast.success(`"${product.name}" agregado al carrito`);
+    const pvItems = getPVInventoryByPV(selectedPuntoVentaId);
+    const pvItem = pvItems.find((i) => i.productCode === code);
+    if (pvItem) {
+      const backendProduct = products.find((p) => p.barcode === code) ?? null;
+      addPVItemToCart(pvItem, backendProduct);
+      toast.success(`"${pvItem.productName}" agregado al carrito`);
+      if (!backendProduct) {
+        toast.warning(
+          `"${pvItem.productName}" no está en el Catálogo. Recuerde agregarlo.`,
+          { duration: 6000 },
+        );
+      }
     } else {
-      toast.error(`Producto no encontrado: ${code}`);
+      toast.error(`Producto no encontrado en Inventario PV: ${code}`);
     }
   };
 
+  // Total uses pvItem.price (price from PV inventory, in cents)
   const total = cart.reduce(
-    (sum, item) => sum + Number(item.product.price) * item.quantity,
+    (sum, item) => sum + item.pvItem.price * item.quantity,
     0,
   );
 
@@ -614,15 +651,22 @@ export default function NuevaVenta({
 
     const pvName =
       puntosVenta.find((pv) => pv.id === selectedPuntoVentaId)?.name ?? "";
+
+    // Assign consecutive control number before saving
+    const ctrlNum = getNextCtrlNum();
+
     const saleResult = await createSale.mutateAsync({
       customerId: selectedCustomer?.id ?? BigInt(0),
       paymentTypeId: selectedPaymentType.id,
       items: cart.map((item) => ({
-        productId: item.product.id,
+        // Use backend product id if available; 0 for products not in catalogue
+        productId: item.product?.id ?? BigInt(0),
         quantity: BigInt(item.quantity),
-        unitPrice: item.product.price,
+        // Always use pvItem.price as the selling price
+        unitPrice: BigInt(item.pvItem.price),
       })),
     });
+
     if (saleResult !== undefined && saleResult !== null) {
       const saleId = String(
         typeof saleResult === "object" && "id" in saleResult
@@ -633,16 +677,23 @@ export default function NuevaVenta({
         puntoVentaId: selectedPuntoVentaId,
         puntoVentaName: pvName,
         saleDate: selectedDate,
+        ctrlNum,
       };
       saveSaleMeta(saleId, meta);
     }
 
     // Reduce PV inventory stock for each sold item
     for (const item of cart) {
-      reducePVStock(selectedPuntoVentaId, item.product.barcode, item.quantity);
+      reducePVStock(
+        selectedPuntoVentaId,
+        item.pvItem.productCode,
+        item.quantity,
+      );
     }
 
-    toast.success("¡Venta realizada exitosamente!");
+    toast.success(
+      `¡Venta No. Ctrl ${String(ctrlNum).padStart(4, "0")} realizada exitosamente!`,
+    );
     setCart([]);
     setSelectedCustomer(null);
     setSelectedPaymentType(null);
@@ -738,23 +789,29 @@ export default function NuevaVenta({
               <div>
                 {cart.map((item, idx) => (
                   <div
-                    key={String(item.product.id)}
+                    key={item.pvItem.id}
                     data-ocid={`cart.item.${idx + 1}`}
                     className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-0"
                   >
-                    <ProductThumb productId={item.product.id} />
+                    <ProductThumb productId={item.product?.id ?? null} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        {item.product.name}
+                        {item.pvItem.productName}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        ${formatPrice(item.product.price)} c/u
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        ${formatPriceCents(item.pvItem.price)} c/u
+                        {item.product === null && (
+                          <span className="inline-flex items-center gap-0.5 text-amber-500">
+                            <AlertTriangle size={10} />
+                            Sin catálogo
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => updateQty(item.product.id, -1)}
+                        onClick={() => updateQty(item.pvItem.id, -1)}
                         className="w-6 h-6 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
                       >
                         <Minus size={12} />
@@ -764,18 +821,14 @@ export default function NuevaVenta({
                       </span>
                       <button
                         type="button"
-                        onClick={() => updateQty(item.product.id, 1)}
+                        onClick={() => updateQty(item.pvItem.id, 1)}
                         className="w-6 h-6 rounded-full bg-teal text-white flex items-center justify-center hover:bg-teal/80 transition-colors"
                       >
                         <Plus size={12} />
                       </button>
                     </div>
                     <span className="text-sm font-semibold w-16 text-right">
-                      $
-                      {(
-                        (Number(item.product.price) * item.quantity) /
-                        100
-                      ).toFixed(2)}
+                      ${formatPriceCents(item.pvItem.price * item.quantity)}
                     </span>
                   </div>
                 ))}
@@ -933,7 +986,7 @@ export default function NuevaVenta({
       <ProductPickerModal
         open={showProducts}
         onClose={() => setShowProducts(false)}
-        onAdd={addToCart}
+        onAdd={addPVItemToCart}
         pvInventoryItems={getPVInventoryByPV(selectedPuntoVentaId)}
         allProducts={products}
       />
