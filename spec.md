@@ -1,35 +1,53 @@
-# POS Mobile v46
+# RADIXGESTION
 
 ## Current State
-The app (v45) has:
-- Puntos de Ventas section with tabs: Nueva Venta | Ventas | Inventario PV
-- Inventario section with tabs: Catálogo de Productos | Movimientos | Almacenes
-- Movimientos has sub-tabs: Entrada de Mercancía | Salida de Mercancía
-- InventarioPV uses the main backend products filtered by ubicacionTipo=puntoVenta
-- NuevaVenta uses all backend products (filtered to puntoVenta type) for product selection
-- Ventas shows punto de venta via getSaleMeta badge (exists)
-- EntradaMercancia saves entrada records but doesn't update PV-specific inventory
+- Puntos de Ventas screen has 3 tabs: Nueva Venta | Ventas | Inventario PV
+- Reportes module (Section 4) has: Total Ventas, Ventas por Productos, Productos Restituidos, Movimientos de Stock, IPV
+- Sales data lives in backend (via useSales hook) + localStorage sale metadata (puntoVentaName, puntoVentaId, ctrlNum, saleDate)
+- PV Inventory stored in localStorage via pvInventory utils (getPVInventory)
+- Entradas/Salidas stored in localStorage via entradas/salidas utils
+- Payment types from backend (usePaymentTypes)
+- Customers from backend (useCustomers)
 
 ## Requested Changes (Diff)
 
 ### Add
-- New first sub-tab "Historial" in Movimientos (before "Entrada de Mercancía"), showing all entradas and salidas combined in a list similar to Ventas, with date, type badge (Entrada/Salida), number of items, total value, destination
-- New localStorage utility `pvInventory.ts`: PVInventoryItem { id, productCode, productName, unit, pvId, pvName, stock, price }. Functions: getPVInventory, savePVInventory, getPVInventoryByPV, upsertPVItem (same code+pvId = add stock; different pvId = new entry), reducePVStock, deletePVItem, updatePVItem
-- When EntradaMercancia destination = puntoVenta, also call upsertPVItem for each item
+- New tab "Reportes PV" in PuntosDeVentas.tsx, positioned after "Inventario PV"
+- New file: `src/frontend/src/pages/ReportesPV.tsx`
+  - Full-screen layout with vertical scroll, matching Reportes.tsx style
+  - 3 sub-report cards on the main screen: Total de Ventas | Ventas por Productos | IPV
+  - Each opens its own sub-screen (back button, export menu)
+  
+  **Total de Ventas sub-screen:**
+  - Filter by PV selector (dropdown with all PVs + "Todos")
+  - Filter by date range (from/to) or specific date
+  - Stats cards: mayor venta, promedio de ventas, venta más baja
+  - Table of sales with columns: No.Ctrl, Fecha, PV, Cliente, Total, Tipo de Pago
+  - Sales breakdown by tipo de pago (grouped totals)
+  - Bar chart of sales by date (div-based, like Reportes.tsx)
+  - Export CSV, PDF, XLSX
+
+  **Ventas por Productos sub-screen:**
+  - Filter by PV selector + date range
+  - Table: Producto, Cantidad vendida, Total importe, Tipo de Pago, Clientes
+  - Stats: producto más vendido, producto menos vendido
+  - Bar chart of top products by quantity sold
+  - Breakdown by forma de pago
+  - Export CSV, PDF, XLSX
+
+  **IPV sub-screen:**
+  - Same as IPV in Reportes: current stock per PV + all movements (entradas/salidas linked to PV)
+  - Filter by PV selector
+  - Table of movements: Fecha, Tipo, Producto, Cantidad, Destino/Origen
+  - Export CSV, PDF, XLSX
 
 ### Modify
-- **InventarioPV**: Completely refactored to use PVInventory (localStorage) instead of backend products. Shows all PV inventory items with PV badge. Same product code in different PVs = separate rows. The "+" floating button opens an AddPVItemScreen (full screen with back arrow) where: product code (text), product name (text), unit (select), price (number), stock quantity (number), and a Punto de Venta selector that ONLY shows created puntos de venta (not warehouses). On save: if same code+pvId exists, sum stock; else create new entry. Export/import CSV still available.
-- **NuevaVenta ProductPickerModal**: Filter backend products to only those whose barcode appears in getPVInventoryByPV(selectedPuntoVentaId). Show stock from PVInventory (not main stock). When sale completes, also call reducePVStock for each sold item.
-- **Inventario > Movimientos**: Add "Historial" as first sub-tab (leftmost). Keep Entrada and Salida tabs. Historial tab renders a combined chronological list of all entradas + salidas from utils/entradas.ts and utils/salidas.ts, newest first, similar to Ventas layout.
+- `src/frontend/src/pages/PuntosDeVentas.tsx`: Add 4th tab "Reportes PV" with BarChart2 icon
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Create `src/frontend/src/utils/pvInventory.ts` with full CRUD and upsert logic
-2. Update `src/frontend/src/pages/InventarioPV.tsx`: use PVInventory, new AddPVItemScreen with PV-only selector, show PV badge per item
-3. Update `src/frontend/src/pages/NuevaVenta.tsx`: ProductPickerModal filters by PVInventory for selected PV, reducePVStock on sale complete
-4. Update `src/frontend/src/pages/EntradaMercancia.tsx`: on save when destino=puntoVenta, call upsertPVItem for each item
-5. Update `src/frontend/src/pages/Inventario.tsx`: add "Historial" first sub-tab in Movimientos showing combined entradas+salidas list
-6. Verify Ventas.tsx shows PV name prominently (already implemented)
-7. Update Ayuda with new workflow description
+1. Create `src/frontend/src/pages/ReportesPV.tsx` with all 3 sub-reports using data from useSales, getSaleMeta, getPVInventory, getEntradas, getSalidas hooks/utils
+2. Update `PuntosDeVentas.tsx` to import and render ReportesPV as a 4th tab
+3. Validate build

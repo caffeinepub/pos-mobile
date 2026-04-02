@@ -1,15 +1,17 @@
-import { List, Package, ShoppingCart } from "lucide-react";
+import { BarChart2, List, Package, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import InventarioPV from "./InventarioPV";
 import NuevaVenta from "./NuevaVenta";
+import ReportesPV from "./ReportesPV";
 import Ventas from "./Ventas";
 
-type TabId = "nueva-venta" | "ventas" | "inventario-pv";
+type TabId = "nueva-venta" | "ventas" | "inventario-pv" | "reportes-pv";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "nueva-venta", label: "Nueva Venta", icon: <ShoppingCart size={14} /> },
   { id: "ventas", label: "Ventas", icon: <List size={14} /> },
   { id: "inventario-pv", label: "Inventario PV", icon: <Package size={14} /> },
+  { id: "reportes-pv", label: "Reportes PV", icon: <BarChart2 size={14} /> },
 ];
 
 interface Props {
@@ -54,6 +56,11 @@ export default function PuntosDeVentas({ onNavigateToClientes }: Props) {
       )}
       {activeTab === "ventas" && <Ventas />}
       {activeTab === "inventario-pv" && <InventarioPV />}
+      {activeTab === "reportes-pv" && (
+        <div className="flex-1 overflow-hidden flex flex-col h-full">
+          <ReportesPV />
+        </div>
+      )}
     </div>
   );
 }
