@@ -16,7 +16,6 @@ import {
   Calendar as CalendarIcon,
   CheckCircle2,
   CreditCard,
-  Loader2,
   Minus,
   Package,
   Plus,
@@ -547,160 +546,6 @@ function PaymentTypeModal({
   );
 }
 
-function CashPaymentDialog({
-  open,
-  onClose,
-  total,
-  cashPaid,
-  setCashPaid,
-  onConfirm,
-}: {
-  open: boolean;
-  onClose: () => void;
-  total: number;
-  cashPaid: string;
-  setCashPaid: (v: string) => void;
-  onConfirm: () => void;
-}) {
-  const [exactPayment, setExactPayment] = useState(false);
-
-  const cashPaidNum = exactPayment ? total : Number.parseFloat(cashPaid) || 0;
-  const change = cashPaidNum - total;
-
-  const handleExactChange = (checked: boolean) => {
-    setExactPayment(checked);
-    if (checked) {
-      setCashPaid(total.toFixed(2));
-    } else {
-      setCashPaid("");
-    }
-  };
-
-  const handleConfirm = () => {
-    if (!exactPayment && cashPaidNum < total) {
-      toast.error("El monto pagado es insuficiente");
-      return;
-    }
-    onConfirm();
-  };
-
-  // Reset exactPayment when dialog closes
-  const handleClose = () => {
-    setExactPayment(false);
-    onClose();
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) handleClose();
-      }}
-    >
-      <DialogContent
-        className="max-w-sm mx-auto"
-        data-ocid="cash_payment.dialog"
-      >
-        <DialogHeader>
-          <DialogTitle>Pago en Efectivo</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="bg-muted rounded-xl px-4 py-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1">Total a cobrar</p>
-            <p className="text-3xl font-bold text-foreground">
-              ${total.toFixed(2)}
-            </p>
-          </div>
-
-          {/* Pago exacto checkbox */}
-          <label
-            htmlFor="exact-payment"
-            className="flex items-center gap-3 px-1 py-2 rounded-lg bg-muted/60 cursor-pointer"
-          >
-            <Checkbox
-              id="exact-payment"
-              checked={exactPayment}
-              onCheckedChange={(checked) => handleExactChange(checked === true)}
-              data-ocid="cash_payment.exact_payment.checkbox"
-            />
-            <span className="text-sm font-medium cursor-pointer select-none flex-1">
-              Pago exacto (sin cambio)
-            </span>
-            {exactPayment && (
-              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-            )}
-          </label>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm">Monto pagado por el cliente</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                $
-              </span>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={exactPayment ? total.toFixed(2) : cashPaid}
-                onChange={(e) => {
-                  if (!exactPayment) setCashPaid(e.target.value);
-                }}
-                disabled={exactPayment}
-                className="pl-7 disabled:opacity-60"
-                autoFocus={!exactPayment}
-                data-ocid="cash_payment.cash_paid.input"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between px-1 py-2 rounded-lg bg-muted">
-            <span className="text-sm font-medium">Cambio a devolver</span>
-            <span
-              className={`text-lg font-bold ${
-                exactPayment
-                  ? "text-green-600"
-                  : cashPaidNum > 0
-                    ? change >= 0
-                      ? "text-green-600"
-                      : "text-red-500"
-                    : "text-muted-foreground"
-              }`}
-            >
-              {exactPayment
-                ? "$0.00"
-                : cashPaidNum > 0
-                  ? `$${change.toFixed(2)}`
-                  : "$0.00"}
-            </span>
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={handleClose}
-              data-ocid="cash_payment.cancel_button"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              className="flex-1 bg-teal hover:bg-teal/90 text-white"
-              onClick={handleConfirm}
-              data-ocid="cash_payment.confirm_button"
-            >
-              <CheckCircle2 size={16} className="mr-1.5" />
-              Confirmar y Realizar Venta
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function NuevaVenta({
   onNavigateToClientes,
 }: {
@@ -716,8 +561,8 @@ export default function NuevaVenta({
   const [showProducts, setShowProducts] = useState(false);
   const [showCustomers, setShowCustomers] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [showCashDialog, setShowCashDialog] = useState(false);
   const [cashPaid, setCashPaid] = useState("");
+  const [exactPayment, setExactPayment] = useState(false);
   const [puntosVenta, setPuntosVenta] = useState(() => getPuntosVenta());
   const [selectedPuntoVentaId, setSelectedPuntoVentaId] = useState(() =>
     getSelectedPuntoVenta(),
@@ -788,8 +633,26 @@ export default function NuevaVenta({
 
   const isCash = selectedPaymentType?.name.toLowerCase().trim() === "efectivo";
   const totalPesos = total / 100;
-  const cashPaidNum = Number.parseFloat(cashPaid) || 0;
+  const cashPaidNum = exactPayment
+    ? totalPesos
+    : Number.parseFloat(cashPaid) || 0;
   const change = cashPaidNum - totalPesos;
+
+  // Reset cash fields when payment type changes
+  const handleSelectPaymentType = (pt: PaymentType) => {
+    setSelectedPaymentType(pt);
+    setCashPaid("");
+    setExactPayment(false);
+  };
+
+  const handleExactPaymentChange = (checked: boolean) => {
+    setExactPayment(checked);
+    if (checked) {
+      setCashPaid(totalPesos.toFixed(2));
+    } else {
+      setCashPaid("");
+    }
+  };
 
   const handleRealizarVenta = async () => {
     if (cart.length === 0) {
@@ -801,16 +664,16 @@ export default function NuevaVenta({
       return;
     }
 
-    // If cash payment and no amount entered yet, open the cash dialog
-    if (isCash && cashPaid.trim() === "") {
-      setShowCashDialog(true);
-      return;
-    }
-
-    // If cash payment and entered amount is insufficient
-    if (isCash && cashPaidNum < totalPesos) {
-      toast.error("El monto pagado es insuficiente");
-      return;
+    // If cash payment, validate amount unless exact payment
+    if (isCash && !exactPayment) {
+      if (cashPaid.trim() === "") {
+        toast.error("Ingrese el monto pagado por el cliente");
+        return;
+      }
+      if (cashPaidNum < totalPesos) {
+        toast.error("El monto pagado es insuficiente");
+        return;
+      }
     }
 
     const pvName =
@@ -863,18 +726,11 @@ export default function NuevaVenta({
       setSelectedCustomer(null);
       setSelectedPaymentType(null);
       setCashPaid("");
-      setShowCashDialog(false);
-    } catch (e: any) {
-      toast.error(
-        `Error al guardar la venta: ${e?.message ?? "Error desconocido"}`,
-      );
+      setExactPayment(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error desconocido";
+      toast.error(`Error al guardar la venta: ${msg}`);
     }
-  };
-
-  const handleConfirmCashSale = () => {
-    setShowCashDialog(false);
-    // Small timeout to let dialog close before proceeding
-    setTimeout(() => handleRealizarVenta(), 50);
   };
 
   return (
@@ -1017,7 +873,7 @@ export default function NuevaVenta({
 
       {/* Fixed bottom bar */}
       <div className="shrink-0">
-        {/* Action icons row - no background */}
+        {/* Action icons row */}
         <div className="flex items-center justify-around px-4 py-1.5">
           {/* Scan */}
           <button
@@ -1098,46 +954,74 @@ export default function NuevaVenta({
             </span>
           </div>
 
-          {/* Cash fields when Efectivo is selected */}
+          {/* Cash section when Efectivo is selected */}
           {isCash && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Separator className="bg-white/10" />
-              <div className="flex items-center gap-3">
-                <Label className="text-white/70 text-xs w-28 shrink-0">
-                  Pagó el cliente
-                </Label>
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-sm">
-                    $
-                  </span>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={cashPaid}
-                    onChange={(e) => setCashPaid(e.target.value)}
-                    className="pl-7 bg-white/10 border-white/20 text-white placeholder:text-white/30 h-8"
-                    data-ocid="nueva_venta.cash_paid.input"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-white/70 text-xs">A devolver</span>
-                <span
-                  className={`text-sm font-bold ${
-                    cashPaidNum > 0
-                      ? change >= 0
-                        ? "text-green-400"
-                        : "text-red-400"
-                      : "text-white/40"
-                  }`}
-                >
-                  {cashPaidNum > 0
-                    ? `$${Math.max(change, 0).toFixed(2)}`
-                    : "$0.00"}
+
+              {/* Pago exacto checkbox */}
+              <label
+                htmlFor="exact-payment-inline"
+                className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg bg-white/10 cursor-pointer"
+              >
+                <Checkbox
+                  id="exact-payment-inline"
+                  checked={exactPayment}
+                  onCheckedChange={(checked) =>
+                    handleExactPaymentChange(checked === true)
+                  }
+                  className="border-white/50 data-[state=checked]:bg-teal data-[state=checked]:border-teal"
+                  data-ocid="nueva_venta.exact_payment.checkbox"
+                />
+                <span className="text-white/90 text-xs font-medium flex-1 select-none cursor-pointer">
+                  Pago exacto (sin cambio)
                 </span>
-              </div>
+                {exactPayment && (
+                  <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                )}
+              </label>
+
+              {/* Amount paid + change (only shown when not exact) */}
+              {!exactPayment && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-white/70 text-xs w-24 shrink-0">
+                      Pagó el cliente
+                    </Label>
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-sm">
+                        $
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={cashPaid}
+                        onChange={(e) => setCashPaid(e.target.value)}
+                        className="pl-7 bg-white/10 border-white/20 text-white placeholder:text-white/30 h-8"
+                        data-ocid="nueva_venta.cash_paid.input"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-white/70 text-xs">A devolver</span>
+                    <span
+                      className={`text-sm font-bold ${
+                        cashPaidNum > 0
+                          ? change >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
+                          : "text-white/40"
+                      }`}
+                    >
+                      {cashPaidNum > 0
+                        ? `$${Math.max(change, 0).toFixed(2)}`
+                        : "$0.00"}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1180,21 +1064,8 @@ export default function NuevaVenta({
       <PaymentTypeModal
         open={showPayment}
         onClose={() => setShowPayment(false)}
-        onSelect={(pt) => {
-          setSelectedPaymentType(pt);
-          if (pt.name.toLowerCase().trim() === "efectivo") {
-            setShowCashDialog(true);
-          }
-        }}
+        onSelect={handleSelectPaymentType}
         paymentTypes={paymentTypes}
-      />
-      <CashPaymentDialog
-        open={showCashDialog}
-        onClose={() => setShowCashDialog(false)}
-        total={totalPesos}
-        cashPaid={cashPaid}
-        setCashPaid={setCashPaid}
-        onConfirm={handleConfirmCashSale}
       />
     </div>
   );

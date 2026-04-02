@@ -319,7 +319,13 @@ actor {
     paymentTypes.remove(id);
   };
 
+  // productId = 0 means the product is not in the catalogue (sold from PV inventory only).
+  // In that case we skip stock update in the backend catalogue.
   func updateProductStock(productId : Nat, quantity : Nat) {
+    if (productId == 0) {
+      // Product not in catalogue — skip backend stock update.
+      return;
+    };
     switch (products.get(productId)) {
       case (null) { Runtime.trap("Product with id " # productId.toText() # " not found") };
       case (?product) {
@@ -334,6 +340,10 @@ actor {
   };
 
   func restoreProductStock(productId : Nat, quantity : Nat) {
+    if (productId == 0) {
+      // Product not in catalogue — nothing to restore.
+      return;
+    };
     switch (products.get(productId)) {
       case (null) { Runtime.trap("Product with id " # productId.toText() # " not found") };
       case (?product) {
@@ -347,8 +357,15 @@ actor {
   };
 
   // Sales
+  // customerId = 0 means anonymous sale (no customer selected).
+  // productId = 0 in any item means the product is not in the backend catalogue.
   public shared ({ caller }) func createSale(customerId : Nat, paymentTypeId : Nat, items : [SaleItem]) : async Nat {
-    // Update product stocks and validate quantities
+    // Validate paymentTypeId exists
+    if (not paymentTypes.containsKey(paymentTypeId)) {
+      Runtime.trap("Payment type not found");
+    };
+
+    // Update product stocks (skips productId = 0 items)
     for (item in items.values()) {
       updateProductStock(item.productId, item.quantity);
     };
@@ -374,7 +391,7 @@ actor {
         Runtime.trap("Sale not found");
       };
       case (?sale) {
-        // Restore product stock for each item
+        // Restore product stock for each item (skips productId = 0 items)
         for (item in sale.items.values()) {
           restoreProductStock(item.productId, item.quantity);
         };
