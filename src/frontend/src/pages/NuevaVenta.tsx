@@ -39,6 +39,7 @@ import {
   useProducts,
 } from "../hooks/useQueries";
 import { useQRScanner } from "../qr-code/useQRScanner";
+import { getCurrencySymbol } from "../utils/currency";
 import {
   type SaleMeta,
   getNextCtrlNum,
@@ -223,6 +224,7 @@ function ProductPickerModal({
   pvInventoryItems: PVInventoryItem[];
   allProducts: Product[];
 }) {
+  const currSymbol = getCurrencySymbol();
   const [search, setSearch] = useState("");
   const filtered = pvInventoryItems.filter(
     (i) =>
@@ -315,7 +317,7 @@ function ProductPickerModal({
                             {pvItem.productName}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Stock: {pvItem.stock} · $
+                            Stock: {pvItem.stock} · {currSymbol}
                             {formatPriceCents(pvItem.price)}
                             {notInCatalog && (
                               <span className="ml-1 text-amber-500 font-medium">
@@ -551,6 +553,7 @@ export default function NuevaVenta({
 }: {
   onNavigateToClientes?: () => void;
 }) {
+  const currSymbol = getCurrencySymbol();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null,
@@ -701,11 +704,17 @@ export default function NuevaVenta({
             ? (saleResult as { id: unknown }).id
             : saleResult,
         );
+        const itemNames: Record<string, string> = {};
+        for (const item of cart) {
+          itemNames[item.pvItem.productCode] = item.pvItem.productName;
+        }
         const meta: SaleMeta = {
           puntoVentaId: selectedPuntoVentaId,
           puntoVentaName: pvName,
           saleDate: selectedDate,
           ctrlNum,
+          itemNames,
+          customerName: selectedCustomer?.name ?? "Público General",
         };
         saveSaleMeta(saleId, meta);
       }
@@ -832,7 +841,8 @@ export default function NuevaVenta({
                         {item.pvItem.productName}
                       </p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        ${formatPriceCents(item.pvItem.price)} c/u
+                        {currSymbol}
+                        {formatPriceCents(item.pvItem.price)} c/u
                         {item.product === null && (
                           <span className="inline-flex items-center gap-0.5 text-amber-500">
                             <AlertTriangle size={10} />
@@ -861,7 +871,8 @@ export default function NuevaVenta({
                       </button>
                     </div>
                     <span className="text-sm font-semibold w-16 text-right">
-                      ${formatPriceCents(item.pvItem.price * item.quantity)}
+                      {currSymbol}
+                      {formatPriceCents(item.pvItem.price * item.quantity)}
                     </span>
                   </div>
                 ))}
@@ -950,7 +961,8 @@ export default function NuevaVenta({
           <div className="flex items-center justify-between">
             <span className="text-white/80 font-medium text-sm">Total</span>
             <span className="text-white text-2xl font-bold">
-              ${totalPesos.toFixed(2)}
+              {currSymbol}
+              {totalPesos.toFixed(2)}
             </span>
           </div>
 
@@ -990,7 +1002,7 @@ export default function NuevaVenta({
                     </Label>
                     <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-sm">
-                        $
+                        {currSymbol}
                       </span>
                       <Input
                         type="number"
@@ -1016,8 +1028,8 @@ export default function NuevaVenta({
                       }`}
                     >
                       {cashPaidNum > 0
-                        ? `$${Math.max(change, 0).toFixed(2)}`
-                        : "$0.00"}
+                        ? `${currSymbol}${Math.max(change, 0).toFixed(2)}`
+                        : `${currSymbol}0.00`}
                     </span>
                   </div>
                 </>

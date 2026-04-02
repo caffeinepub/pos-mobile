@@ -29,6 +29,7 @@ import {
   useSales,
 } from "../hooks/useQueries";
 import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
+import { getCurrencySymbol } from "../utils/currency";
 import { getEntradas } from "../utils/entradas";
 import { getPuntosVenta, getSaleMeta } from "../utils/puntosVenta";
 import { getPVInventory } from "../utils/pvInventory";
@@ -49,7 +50,7 @@ function msToIso(ms: number): string {
 }
 
 function getCustomerName(id: bigint, customers: Customer[]): string {
-  return customers.find((c) => c.id === id)?.name ?? "Sin cliente";
+  return customers.find((c) => c.id === id)?.name ?? "Público General";
 }
 
 function getPaymentName(id: bigint, paymentTypes: PaymentType[]): string {
@@ -95,7 +96,7 @@ function BarChart({ data }: { data: { label: string; value: number }[] }) {
       {data.map((d) => (
         <div key={d.label} className="flex flex-col items-center flex-1 gap-1">
           <div
-            className="w-full rounded-t-sm bg-teal transition-all"
+            className="w-full rounded-t-sm bg-blue-500 transition-all"
             style={{ height: `${Math.max((d.value / max) * 100, 4)}%` }}
           />
           <span className="text-[9px] text-muted-foreground truncate w-full text-center">
@@ -377,6 +378,7 @@ function filterSales(
 // ─── Sub-screen 1: Total de Ventas PV ─────────────────────────────────────────
 
 function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
+  const currSymbol = getCurrencySymbol();
   const { data: sales = [] } = useSales();
   const { data: customers = [] } = useCustomers();
   const { data: paymentTypes = [] } = usePaymentTypes();
@@ -488,14 +490,14 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
         const cliente = getCustomerName(s.customerId, customers);
         const total = formatPrice(s.totalAmount);
         const pago = getPaymentName(s.paymentTypeId, paymentTypes);
-        return `<tr><td>${ctrl}</td><td>${fecha}</td><td>${pvN}</td><td>${cliente}</td><td>$${total}</td><td>${pago}</td></tr>`;
+        return `<tr><td>${ctrl}</td><td>${fecha}</td><td>${pvN}</td><td>${cliente}</td><td>${currSymbol}${total}</td><td>${pago}</td></tr>`;
       })
       .join("");
 
     const paymentRows = paymentBreakdown
       .map(
         ([name, { count, total }]) =>
-          `<tr><td>${name}</td><td>${count}</td><td>$${formatPrice(total)}</td></tr>`,
+          `<tr><td>${name}</td><td>${count}</td><td>${currSymbol}${formatPrice(total)}</td></tr>`,
       )
       .join("");
 
@@ -504,11 +506,11 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
 <body><div class="header">${htmlHeader}</div>
 <h2>Total de Ventas — ${pvName}</h2>
 <p style="font-size:12px;color:#666">Período: ${periodLabel}</p>
-<div class="total-box"><div style="font-size:13px;opacity:0.8;margin-bottom:6px">Importe Total</div><div class="amount">$${formatPrice(totalRevenue)}</div></div>
+<div class="total-box"><div style="font-size:13px;opacity:0.8;margin-bottom:6px">Importe Total</div><div class="amount">${currSymbol}${formatPrice(totalRevenue)}</div></div>
 <div class="stats">
-  <div class="stat"><div class="label">Venta más alta</div><div class="value">$${formatPrice(highest)}</div></div>
-  <div class="stat"><div class="label">Promedio</div><div class="value">$${formatPrice(average)}</div></div>
-  <div class="stat"><div class="label">Venta más baja</div><div class="value">$${formatPrice(lowest)}</div></div>
+  <div class="stat"><div class="label">Venta más alta</div><div class="value">${currSymbol}${formatPrice(highest)}</div></div>
+  <div class="stat"><div class="label">Promedio</div><div class="value">${currSymbol}${formatPrice(average)}</div></div>
+  <div class="stat"><div class="label">Venta más baja</div><div class="value">${currSymbol}${formatPrice(lowest)}</div></div>
 </div>
 <h3>Desglose por Tipo de Pago</h3>
 <table><thead><tr><th>Tipo de Pago</th><th>No. Ventas</th><th>Total</th></tr></thead><tbody>${paymentRows || "<tr><td colspan='3'>Sin datos</td></tr>"}</tbody></table>
@@ -556,7 +558,8 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
         <div className="bg-navy rounded-2xl py-5 text-center">
           <p className="text-white/70 text-xs mb-1">Importe Total</p>
           <p className="text-white text-3xl font-bold">
-            ${formatPrice(totalRevenue)}
+            {currSymbol}
+            {formatPrice(totalRevenue)}
           </p>
           <p className="text-white/60 text-xs mt-1">{pvName}</p>
         </div>
@@ -568,13 +571,15 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
               <TrendingUp size={10} className="text-green-500" /> Mayor
             </p>
             <p className="text-base font-bold text-green-500">
-              ${formatPrice(highest)}
+              {currSymbol}
+              {formatPrice(highest)}
             </p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3">
             <p className="text-xs text-muted-foreground mb-1">Promedio</p>
             <p className="text-base font-bold text-teal">
-              ${formatPrice(average)}
+              {currSymbol}
+              {formatPrice(average)}
             </p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3">
@@ -582,7 +587,8 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
               <TrendingDown size={10} className="text-red-500" /> Menor
             </p>
             <p className="text-base font-bold text-red-500">
-              ${formatPrice(lowest)}
+              {currSymbol}
+              {formatPrice(lowest)}
             </p>
           </div>
         </div>
@@ -631,7 +637,8 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
                         </div>
                       </div>
                       <span className="text-sm font-bold text-teal">
-                        ${formatPrice(total)}
+                        {currSymbol}
+                        {formatPrice(total)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -707,7 +714,8 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
                           {getCustomerName(s.customerId, customers)}
                         </td>
                         <td className="border border-border/30 p-1.5 text-right font-semibold">
-                          ${formatPrice(s.totalAmount)}
+                          {currSymbol}
+                          {formatPrice(s.totalAmount)}
                         </td>
                         <td className="border border-border/30 p-1.5">
                           {getPaymentName(s.paymentTypeId, paymentTypes)}
@@ -738,6 +746,7 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
 // ─── Sub-screen 2: Ventas por Productos PV ────────────────────────────────────
 
 function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
+  const currSymbol = getCurrencySymbol();
   const { data: sales = [] } = useSales();
   const { data: customers = [] } = useCustomers();
   const { data: paymentTypes = [] } = usePaymentTypes();
@@ -786,9 +795,16 @@ function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
           products.find((p) => String(p.id) === pid)?.barcode ??
           pid;
 
+        // For uncatalogued products (productId=0), use itemNames from sale meta
+        const meta = getSaleMeta(String(s.id));
+        const displayName =
+          productName === pid || productName === "0"
+            ? (meta?.itemNames?.[code] ?? productName)
+            : productName;
+
         const existing = map.get(pid) ?? {
           productId: pid,
-          name: productName,
+          name: displayName,
           code,
           qty: 0,
           revenue: 0,
@@ -863,7 +879,7 @@ function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
     const productRows = productStats
       .map(
         (p) =>
-          `<tr><td>${p.code}</td><td>${p.name}</td><td>${p.qty}</td><td>$${formatPrice(p.revenue)}</td><td>${p.customerSet.size}</td></tr>`,
+          `<tr><td>${p.code}</td><td>${p.name}</td><td>${p.qty}</td><td>${currSymbol}${formatPrice(p.revenue)}</td><td>${p.customerSet.size}</td></tr>`,
       )
       .join("");
 
@@ -1010,7 +1026,8 @@ function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
                           {p.qty} uds.
                         </span>
                         <span className="text-xs font-semibold text-teal">
-                          ${formatPrice(p.revenue)}
+                          {currSymbol}
+                          {formatPrice(p.revenue)}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {p.customerSet.size} cliente(s)
@@ -1040,7 +1057,8 @@ function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
                                   {payName} ({count})
                                 </span>
                                 <span className="font-medium">
-                                  ${formatPrice(total)}
+                                  {currSymbol}
+                                  {formatPrice(total)}
                                 </span>
                               </div>
                             ),

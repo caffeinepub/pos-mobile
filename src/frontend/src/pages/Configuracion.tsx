@@ -46,6 +46,11 @@ import {
 } from "../utils/almacenes";
 import { getBusinessData, saveBusinessData } from "../utils/businessData";
 import {
+  CURRENCIES,
+  getCurrencyCode,
+  saveCurrencyCode,
+} from "../utils/currency";
+import {
   type EntradaMercanciaTipo,
   getTiposEntrada,
   saveTiposEntrada,
@@ -63,139 +68,58 @@ import {
   saveTiposSalida,
 } from "../utils/salidas";
 
-// ---- World Currencies ----
-const CURRENCIES: { code: string; name: string; symbol: string }[] = [
-  { code: "USD", name: "Dólar estadounidense", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "Libra esterlina", symbol: "£" },
-  { code: "JPY", name: "Yen japonés", symbol: "¥" },
-  { code: "CAD", name: "Dólar canadiense", symbol: "CA$" },
-  { code: "AUD", name: "Dólar australiano", symbol: "A$" },
-  { code: "CHF", name: "Franco suizo", symbol: "Fr" },
-  { code: "CNY", name: "Yuan chino", symbol: "¥" },
-  { code: "MXN", name: "Peso mexicano", symbol: "$" },
-  { code: "BRL", name: "Real brasileño", symbol: "R$" },
-  { code: "ARS", name: "Peso argentino", symbol: "$" },
-  { code: "COP", name: "Peso colombiano", symbol: "$" },
-  { code: "PEN", name: "Sol peruano", symbol: "S/" },
-  { code: "CLP", name: "Peso chileno", symbol: "$" },
-  { code: "VES", name: "Bolívar venezolano", symbol: "Bs." },
-  { code: "CRC", name: "Colón costarricense", symbol: "₡" },
-  { code: "GTQ", name: "Quetzal guatemalteco", symbol: "Q" },
-  { code: "HNL", name: "Lempira hondureño", symbol: "L" },
-  { code: "NIO", name: "Córdoba nicaragüense", symbol: "C$" },
-  { code: "PAB", name: "Balboa panameño", symbol: "B/." },
-  { code: "DOP", name: "Peso dominicano", symbol: "RD$" },
-  { code: "BOB", name: "Boliviano", symbol: "Bs" },
-  { code: "PYG", name: "Guaraní paraguayo", symbol: "₲" },
-  { code: "UYU", name: "Peso uruguayo", symbol: "$U" },
-  { code: "CUP", name: "Peso cubano", symbol: "$" },
-  { code: "INR", name: "Rupia india", symbol: "₹" },
-  { code: "KRW", name: "Won surcoreano", symbol: "₩" },
-  { code: "SGD", name: "Dólar de Singapur", symbol: "S$" },
-  { code: "HKD", name: "Dólar de Hong Kong", symbol: "HK$" },
-  { code: "TWD", name: "Nuevo dólar taiwanés", symbol: "NT$" },
-  { code: "THB", name: "Baht tailandés", symbol: "฿" },
-  { code: "MYR", name: "Ringgit malayo", symbol: "RM" },
-  { code: "IDR", name: "Rupia indonesia", symbol: "Rp" },
-  { code: "PHP", name: "Peso filipino", symbol: "₱" },
-  { code: "VND", name: "Dong vietnamita", symbol: "₫" },
-  { code: "PKR", name: "Rupia pakistaní", symbol: "₨" },
-  { code: "BDT", name: "Taka bangladesí", symbol: "৳" },
-  { code: "LKR", name: "Rupia de Sri Lanka", symbol: "Rs" },
-  { code: "NPR", name: "Rupia nepalesa", symbol: "रू" },
-  { code: "RUB", name: "Rublo ruso", symbol: "₽" },
-  { code: "TRY", name: "Lira turca", symbol: "₺" },
-  { code: "PLN", name: "Esloti polaco", symbol: "zł" },
-  { code: "SEK", name: "Corona sueca", symbol: "kr" },
-  { code: "NOK", name: "Corona noruega", symbol: "kr" },
-  { code: "DKK", name: "Corona danesa", symbol: "kr" },
-  { code: "HUF", name: "Forinto húngaro", symbol: "Ft" },
-  { code: "CZK", name: "Corona checa", symbol: "Kč" },
-  { code: "RON", name: "Leu rumano", symbol: "lei" },
-  { code: "BGN", name: "Lev búlgaro", symbol: "лв" },
-  { code: "HRK", name: "Kuna croata", symbol: "kn" },
-  { code: "ZAR", name: "Rand sudafricano", symbol: "R" },
-  { code: "NGN", name: "Naira nigeriana", symbol: "₦" },
-  { code: "KES", name: "Chelín keniano", symbol: "KSh" },
-  { code: "EGP", name: "Libra egipcia", symbol: "£" },
-  { code: "MAD", name: "Dírham marroquí", symbol: "د.م." },
-  { code: "GHS", name: "Cedi ghanés", symbol: "₵" },
-  { code: "ETB", name: "Birr etíope", symbol: "Br" },
-  { code: "TZS", name: "Chelín tanzano", symbol: "TSh" },
-  { code: "UGX", name: "Chelín ugandés", symbol: "USh" },
-  { code: "XAF", name: "Franco CFA (África Central)", symbol: "FCFA" },
-  { code: "XOF", name: "Franco CFA (África Occidental)", symbol: "CFA" },
-  { code: "SAR", name: "Riyal saudí", symbol: "﷼" },
-  { code: "AED", name: "Dírham de EAU", symbol: "د.إ" },
-  { code: "QAR", name: "Riyal catarí", symbol: "﷼" },
-  { code: "KWD", name: "Dinar kuwaití", symbol: "د.ك" },
-  { code: "BHD", name: "Dinar barení", symbol: ".د.ب" },
-  { code: "OMR", name: "Rial omaní", symbol: "﷼" },
-  { code: "JOD", name: "Dinar jordano", symbol: "د.ا" },
-  { code: "ILS", name: "Nuevo séquel israelí", symbol: "₪" },
-  { code: "IQD", name: "Dinar iraquí", symbol: "ع.د" },
-  { code: "IRR", name: "Rial iraní", symbol: "﷼" },
-  { code: "AFN", name: "Afgani afgano", symbol: "؋" },
-  { code: "AZN", name: "Manat azerbaiyano", symbol: "₼" },
-  { code: "KZT", name: "Tenge kazajo", symbol: "₸" },
-  { code: "UZS", name: "Som uzbeko", symbol: "сўм" },
-  { code: "GEL", name: "Lari georgiano", symbol: "₾" },
-  { code: "AMD", name: "Dram armenio", symbol: "֏" },
-  { code: "UAH", name: "Grivna ucraniana", symbol: "₴" },
-  { code: "BYN", name: "Rublo bielorruso", symbol: "Br" },
-  { code: "MDL", name: "Leu moldavo", symbol: "L" },
-  { code: "ALL", name: "Lek albanés", symbol: "L" },
-  { code: "BAM", name: "Marco de Bosnia y Herzegovina", symbol: "KM" },
-  { code: "MKD", name: "Denar macedonio", symbol: "ден" },
-  { code: "RSD", name: "Dinar serbio", symbol: "din" },
-  { code: "ISK", name: "Corona islandesa", symbol: "kr" },
-  { code: "NZD", name: "Dólar neozelandés", symbol: "NZ$" },
-  { code: "FJD", name: "Dólar fiyiano", symbol: "FJ$" },
-];
-
-// ---- Camera Overlay ----
-function CameraOverlay({
+// ---- Camera Sub-screen ----
+function CameraSubScreen({
   onCapture,
-  onClose,
-}: { onCapture: (file: File) => void; onClose: () => void }) {
+  onBack,
+}: {
+  onCapture: (dataUrl: string) => void;
+  onBack: () => void;
+}) {
   const {
-    isActive,
-    isSupported,
-    error,
-    isLoading,
-    startCamera,
-    stopCamera,
-    capturePhoto,
     videoRef,
     canvasRef,
-  } = useCamera({ facingMode: "environment" });
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-once
-  useEffect(() => {
-    startCamera();
-    return () => {
-      stopCamera();
-    };
-  }, []);
+    isSupported,
+    isLoading,
+    isActive,
+    error,
+    startCamera,
+    capturePhoto,
+  } = useCamera();
 
   const handleCapture = async () => {
     const file = await capturePhoto();
-    if (file) onCapture(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onCapture(reader.result as string);
+        onBack();
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
+  // Start camera when component mounts
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      startCamera();
+    }
+  }, [startCamera]);
+
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
-      <div className="flex items-center justify-between p-4">
-        <span className="text-white font-semibold">Tomar foto</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-white hover:text-white hover:bg-white/20"
-          onClick={onClose}
+    <div className="flex flex-col flex-1 overflow-hidden bg-black">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 shrink-0">
+        <button
+          type="button"
+          onClick={onBack}
+          className="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors"
+          aria-label="Volver"
         >
-          Cerrar
-        </Button>
+          <ArrowLeft size={20} />
+        </button>
+        <span className="text-white font-semibold text-base">Tomar foto</span>
       </div>
       <div className="flex-1 relative flex items-center justify-center">
         {isSupported === false ? (
@@ -270,6 +194,15 @@ function DatosNegocioScreen({ onBack }: { onBack: () => void }) {
     toast.success("Datos del negocio guardados");
     onBack();
   };
+
+  if (showCamera) {
+    return (
+      <CameraSubScreen
+        onCapture={(dataUrl) => setImagePreview(dataUrl)}
+        onBack={() => setShowCamera(false)}
+      />
+    );
+  }
 
   return (
     <>
@@ -427,28 +360,21 @@ function DatosNegocioScreen({ onBack }: { onBack: () => void }) {
                 }}
                 data-ocid="config.negocio.cuenta.add_button"
               >
-                <Plus size={14} />
+                <Plus size={16} />
               </Button>
             </div>
           </div>
-          <Button
-            className="w-full h-12 text-base font-semibold mt-2"
-            onClick={handleGuardar}
-            data-ocid="config.negocio.submit_button"
-          >
-            Guardar
-          </Button>
         </div>
       </ScrollArea>
-      {showCamera && (
-        <CameraOverlay
-          onCapture={(file) => {
-            setImagePreview(URL.createObjectURL(file));
-            setShowCamera(false);
-          }}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
+      <div className="shrink-0 px-4 py-3 border-t border-border">
+        <Button
+          className="w-full h-12 rounded-xl text-base font-semibold"
+          onClick={handleGuardar}
+          data-ocid="config.negocio.save_button"
+        >
+          Guardar cambios
+        </Button>
+      </div>
     </>
   );
 }
@@ -2013,7 +1939,9 @@ function EntidadesConfigScreen(_props: { onBack: () => void }) {
 
 export default function Configuracion() {
   const { theme: currentTheme } = useAppTheme();
-  const [selectedCurrency, setSelectedCurrency] = useState("USD");
+  const [selectedCurrency, setSelectedCurrency] = useState(() =>
+    getCurrencyCode(),
+  );
 
   type SubScreen =
     | null
@@ -2065,7 +1993,10 @@ export default function Configuracion() {
         {activeSubScreen === "moneda" && (
           <MonedaScreen
             selectedCode={selectedCurrency}
-            onSelect={setSelectedCurrency}
+            onSelect={(code) => {
+              setSelectedCurrency(code);
+              saveCurrencyCode(code);
+            }}
             onBack={() => setActiveSubScreen(null)}
           />
         )}

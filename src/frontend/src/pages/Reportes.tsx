@@ -23,6 +23,7 @@ import { useMemo, useState } from "react";
 import type { Customer, Product, Sale } from "../backend.d";
 import { useCustomers, useProducts, useSales } from "../hooks/useQueries";
 import { buildHtmlHeader } from "../utils/businessData";
+import { getCurrencySymbol } from "../utils/currency";
 import { getEntradas } from "../utils/entradas";
 import { getSalidas, getTiposSalida } from "../utils/salidas";
 
@@ -215,6 +216,7 @@ function SalesReportScreen({
   sales: Sale[];
   customers: Customer[];
 }) {
+  const currSymbol = getCurrencySymbol();
   const [dateMode, setDateMode] = useState<"range" | "single">("range");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -275,7 +277,7 @@ function SalesReportScreen({
     const customerRows = perCustomer
       .map(
         ([name, amount]) =>
-          `<tr><td>${name}</td><td>$${formatPrice(amount)}</td></tr>`,
+          `<tr><td>${name}</td><td>${currSymbol}${formatPrice(amount)}</td></tr>`,
       )
       .join("");
     const periodLabel =
@@ -285,7 +287,7 @@ function SalesReportScreen({
           "Todos los períodos";
     const html = `<html><head><title>Reporte de Ventas</title>
 <style>body{font-family:sans-serif;padding:20px;color:#1a1a1a}h2{color:#0B2040;margin-bottom:4px}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}.total-box{text-align:center;background:#0B2040;color:white;border-radius:10px;padding:20px;margin:16px 0}.total-box .amount{font-size:2.5rem;font-weight:bold}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.stat{background:#f5f5f5;border-radius:8px;padding:12px}.stat .label{font-size:11px;color:#666;margin-bottom:4px}.stat .value{font-size:1.2rem;font-weight:bold}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:13px}th{background:#0B2040;color:white}</style></head>
-<body><div class="header">${htmlHeader}</div><h2>Reporte de Ventas</h2><p style="font-size:12px;color:#666">Período: ${periodLabel}</p><div class="total-box"><div style="font-size:13px;opacity:0.8;margin-bottom:6px">Importe Total</div><div class="amount">$${formatPrice(totalRevenue)}</div></div><div class="stats"><div class="stat"><div class="label">Total de ventas</div><div class="value">${numSales}</div></div><div class="stat"><div class="label">Venta más alta</div><div class="value">$${formatPrice(highest)}</div></div><div class="stat"><div class="label">Venta más baja</div><div class="value">$${formatPrice(lowest)}</div></div><div class="stat"><div class="label">Venta promedio</div><div class="value">$${formatPrice(average)}</div></div></div><h3>Monto total por cliente</h3><table><thead><tr><th>Cliente</th><th>Total</th></tr></thead><tbody>${customerRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table></body></html>`;
+<body><div class="header">${htmlHeader}</div><h2>Reporte de Ventas</h2><p style="font-size:12px;color:#666">Período: ${periodLabel}</p><div class="total-box"><div style="font-size:13px;opacity:0.8;margin-bottom:6px">Importe Total</div><div class="amount">${currSymbol}${formatPrice(totalRevenue)}</div></div><div class="stats"><div class="stat"><div class="label">Total de ventas</div><div class="value">${numSales}</div></div><div class="stat"><div class="label">Venta más alta</div><div class="value">${currSymbol}${formatPrice(highest)}</div></div><div class="stat"><div class="label">Venta más baja</div><div class="value">${currSymbol}${formatPrice(lowest)}</div></div><div class="stat"><div class="label">Venta promedio</div><div class="value">${currSymbol}${formatPrice(average)}</div></div></div><h3>Monto total por cliente</h3><table><thead><tr><th>Cliente</th><th>Total</th></tr></thead><tbody>${customerRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table></body></html>`;
     const win = window.open("", "_blank");
     if (win) {
       win.document.write(html);
@@ -305,7 +307,8 @@ function SalesReportScreen({
         <div className="bg-navy rounded-2xl py-5 text-center">
           <p className="text-white/70 text-xs mb-1">Importe Total</p>
           <p className="text-white text-3xl font-bold">
-            ${formatPrice(totalRevenue)}
+            {currSymbol}
+            {formatPrice(totalRevenue)}
           </p>
         </div>
         <DateSelector
@@ -346,7 +349,8 @@ function SalesReportScreen({
             <div className="bg-card border border-border rounded-xl p-3">
               <p className="text-xs text-muted-foreground mb-1">Promedio</p>
               <p className="text-lg font-bold text-teal">
-                ${formatPrice(average)}
+                {currSymbol}
+                {formatPrice(average)}
               </p>
             </div>
             <div className="bg-card border border-border rounded-xl p-3">
@@ -354,7 +358,8 @@ function SalesReportScreen({
                 <TrendingUp size={10} className="text-green-500" /> Más alta
               </p>
               <p className="text-lg font-bold text-green-500">
-                ${formatPrice(highest)}
+                {currSymbol}
+                {formatPrice(highest)}
               </p>
             </div>
             <div className="bg-card border border-border rounded-xl p-3">
@@ -362,7 +367,8 @@ function SalesReportScreen({
                 <TrendingDown size={10} className="text-red-500" /> Más baja
               </p>
               <p className="text-lg font-bold text-red-500">
-                ${formatPrice(lowest)}
+                {currSymbol}
+                {formatPrice(lowest)}
               </p>
             </div>
           </div>
@@ -382,7 +388,8 @@ function SalesReportScreen({
                     {name}
                   </span>
                   <span className="text-sm font-bold text-teal">
-                    ${formatPrice(amount)}
+                    {currSymbol}
+                    {formatPrice(amount)}
                   </span>
                 </div>
               ))}
@@ -408,6 +415,7 @@ function ProductsReportScreen({
   sales: Sale[];
   products: Product[];
 }) {
+  const currSymbol = getCurrencySymbol();
   const [dateMode, setDateMode] = useState<"range" | "single">("range");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -492,7 +500,7 @@ function ProductsReportScreen({
     const rows = sortedByQty
       .map(
         ([name, qty]) =>
-          `<tr><td>${name}</td><td>${qty}</td><td>$${formatPrice(productStats.revMap.get(name) ?? 0)}</td></tr>`,
+          `<tr><td>${name}</td><td>${qty}</td><td>${currSymbol}${formatPrice(productStats.revMap.get(name) ?? 0)}</td></tr>`,
       )
       .join("");
     const html = `<html><head><title>Reporte Productos</title><style>body{font-family:sans-serif;padding:20px}h2{color:#0B2040}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}.total-box{text-align:center;background:#0B2040;color:white;border-radius:10px;padding:20px;margin:16px 0}.total-box .amount{font-size:2.5rem;font-weight:bold}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:13px}th{background:#0B2040;color:white}</style></head><body><div class="header">${htmlHeader}</div><h2>Reporte de Productos</h2><p style="font-size:12px;color:#666">Período: ${periodLabel}</p><div class="total-box"><div style="font-size:13px;opacity:0.8;margin-bottom:6px">Total Productos Vendidos</div><div class="amount">${totalQty}</div></div><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Ingresos</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Sin datos</td></tr>'}</tbody></table></body></html>`;
@@ -589,7 +597,8 @@ function ProductsReportScreen({
                 {mostRevenue?.name ?? "—"}
               </p>
               <p className="text-xs text-muted-foreground">
-                ${formatPrice(mostRevenue?.revenue ?? 0)}
+                {currSymbol}
+                {formatPrice(mostRevenue?.revenue ?? 0)}
               </p>
             </div>
             <div className="bg-card border border-border rounded-xl p-3">
@@ -601,7 +610,8 @@ function ProductsReportScreen({
                 {leastRevenue?.name ?? "—"}
               </p>
               <p className="text-xs text-muted-foreground">
-                ${formatPrice(leastRevenue?.revenue ?? 0)}
+                {currSymbol}
+                {formatPrice(leastRevenue?.revenue ?? 0)}
               </p>
             </div>
           </div>
@@ -1099,7 +1109,8 @@ export default function Reportes() {
   const totalRevenue = sales.reduce((acc, s) => acc + Number(s.totalAmount), 0);
   const avgSale = sales.length > 0 ? totalRevenue / sales.length : 0;
 
-  const formatCurrency = (n: number) => `$${(n / 100).toFixed(2)}`;
+  const currSymbol = getCurrencySymbol();
+  const formatCurrency = (n: number) => `${currSymbol}${(n / 100).toFixed(2)}`;
 
   const stats = [
     {

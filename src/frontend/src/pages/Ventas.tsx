@@ -50,6 +50,7 @@ import {
   useSales,
 } from "../hooks/useQueries";
 import { buildFileHeader, buildHtmlHeader } from "../utils/businessData";
+import { getCurrencySymbol } from "../utils/currency";
 import { getSaleMeta } from "../utils/puntosVenta";
 
 function formatPrice(amount: bigint): string {
@@ -175,6 +176,7 @@ function SaleDetailSheet({
   paymentTypes: PaymentType[];
   products: Product[];
 }) {
+  const currSymbol = getCurrencySymbol();
   if (!sale) return null;
   return (
     <Sheet
@@ -213,7 +215,8 @@ function SaleDetailSheet({
               <div className="bg-muted rounded-xl p-3">
                 <p className="text-xs text-muted-foreground mb-1">Total</p>
                 <p className="font-semibold text-sm text-teal">
-                  ${formatPrice(sale.totalAmount)}
+                  {currSymbol}
+                  {formatPrice(sale.totalAmount)}
                 </p>
               </div>
             </div>
@@ -234,11 +237,12 @@ function SaleDetailSheet({
                         {getProductName(item.productId, products)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {String(item.quantity)} × ${formatPrice(item.unitPrice)}
+                        {String(item.quantity)} × {currSymbol}
+                        {formatPrice(item.unitPrice)}
                       </p>
                     </div>
                     <span className="text-sm font-semibold">
-                      $
+                      {currSymbol}
                       {(
                         (Number(item.unitPrice) * Number(item.quantity)) /
                         100
@@ -251,7 +255,8 @@ function SaleDetailSheet({
             <div className="bg-navy rounded-xl px-5 py-4 flex items-center justify-between">
               <span className="text-white/80 font-medium">Total</span>
               <span className="text-white text-xl font-bold">
-                ${formatPrice(sale.totalAmount)}
+                {currSymbol}
+                {formatPrice(sale.totalAmount)}
               </span>
             </div>
           </div>
@@ -457,6 +462,7 @@ interface SearchFilters {
 }
 
 export default function Ventas() {
+  const currSymbol = getCurrencySymbol();
   const deleteSale = useDeleteSale();
   const { data: sales = [], isLoading } = useSales();
   const { data: customers = [] } = useCustomers();
@@ -556,7 +562,7 @@ export default function Ventas() {
 
   const handleShare = async (sale: Sale, e: React.MouseEvent) => {
     e.stopPropagation();
-    const text = `Venta del ${formatDate(sale.date)}\nCliente: ${getCustomerName(sale.customerId, customers)}\nPago: ${getPaymentName(sale.paymentTypeId, paymentTypes)}\nTotal: $${formatPrice(sale.totalAmount)}`;
+    const text = `Venta del ${formatDate(sale.date)}\nCliente: ${getCustomerName(sale.customerId, customers)}\nPago: ${getPaymentName(sale.paymentTypeId, paymentTypes)}\nTotal: ${currSymbol}${formatPrice(sale.totalAmount)}`;
     if (navigator.share) {
       await navigator.share({ title: "Venta POS", text });
     } else {
@@ -570,7 +576,7 @@ export default function Ventas() {
     const cols = "ID,Fecha,Cliente,Pago,Total";
     const rows = filteredSales.map(
       (s) =>
-        `${String(s.id)},${formatDate(s.date)},${getCustomerName(s.customerId, customers)},${getPaymentName(s.paymentTypeId, paymentTypes)},$${formatPrice(s.totalAmount)}`,
+        `${String(s.id)},${formatDate(s.date)},${getCustomerName(s.customerId, customers)},${getPaymentName(s.paymentTypeId, paymentTypes)},${currSymbol}${formatPrice(s.totalAmount)}`,
     );
     const csv = `${fileHeader
       .split("\n")
@@ -590,7 +596,7 @@ export default function Ventas() {
     const rows = filteredSales
       .map(
         (s) =>
-          `<tr><td>${String(s.id)}</td><td>${formatDate(s.date)}</td><td>${getCustomerName(s.customerId, customers)}</td><td>${getPaymentName(s.paymentTypeId, paymentTypes)}</td><td>$${formatPrice(s.totalAmount)}</td></tr>`,
+          `<tr><td>${String(s.id)}</td><td>${formatDate(s.date)}</td><td>${getCustomerName(s.customerId, customers)}</td><td>${getPaymentName(s.paymentTypeId, paymentTypes)}</td><td>${currSymbol}${formatPrice(s.totalAmount)}</td></tr>`,
       )
       .join("");
     const html = `<html><head><title>Ventas</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#0B2040;color:white}.header{margin-bottom:16px;padding:12px;background:#f5f5f5;border-radius:6px}</style></head><body><div class="header">${htmlHeader}</div><h2>Lista de Ventas</h2><table><thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Pago</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
@@ -777,7 +783,8 @@ export default function Ventas() {
                 {formatDate(sale.date)}
               </p>
               <p className="text-sm font-bold text-teal mt-auto">
-                ${formatPrice(sale.totalAmount)}
+                {currSymbol}
+                {formatPrice(sale.totalAmount)}
               </p>
             </button>
           ))}
@@ -825,7 +832,8 @@ export default function Ventas() {
                   );
                 })()}
                 <p className="text-sm font-bold text-teal mt-0.5">
-                  ${formatPrice(sale.totalAmount)}
+                  {currSymbol}
+                  {formatPrice(sale.totalAmount)}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">

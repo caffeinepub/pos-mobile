@@ -58,10 +58,13 @@ export function getNextCtrlNum(): number {
 }
 
 export interface SaleMeta {
+  customerName?: string;
   puntoVentaId: string;
   puntoVentaName: string;
   saleDate: string;
   ctrlNum?: number;
+  /** Map of productId (as string) -> product name from PV inventory */
+  itemNames?: Record<string, string>;
 }
 
 function getAllSaleMeta(): Record<string, SaleMeta> {
