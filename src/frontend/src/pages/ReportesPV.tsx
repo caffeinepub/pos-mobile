@@ -87,27 +87,6 @@ function exportXLSX(csvContent: string, filename: string) {
   downloadBlob(blob, filename);
 }
 
-// ─── BarChart ─────────────────────────────────────────────────────────────────
-
-function BarChart({ data }: { data: { label: string; value: number }[] }) {
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <div className="flex items-end gap-1 h-32 w-full">
-      {data.map((d) => (
-        <div key={d.label} className="flex flex-col items-center flex-1 gap-1">
-          <div
-            className="w-full rounded-t-sm bg-blue-500 transition-all"
-            style={{ height: `${Math.max((d.value / max) * 100, 4)}%` }}
-          />
-          <span className="text-[9px] text-muted-foreground truncate w-full text-center">
-            {d.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── SubScreenHeader ──────────────────────────────────────────────────────────
 
 function SubScreenHeader({
@@ -406,19 +385,6 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
     numSales > 0 ? Math.min(...filtered.map((s) => Number(s.totalAmount))) : 0;
   const average = numSales > 0 ? totalRevenue / numSales : 0;
 
-  // Chart data: group by day
-  const chartData = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of filtered) {
-      const d = isoDate(s.date);
-      map.set(d, (map.get(d) ?? 0) + Number(s.totalAmount));
-    }
-    return Array.from(map.entries())
-      .sort()
-      .slice(-14)
-      .map(([label, value]) => ({ label: label.slice(5), value }));
-  }, [filtered]);
-
   // Payment type breakdown
   const paymentBreakdown = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
@@ -591,20 +557,6 @@ function TotalVentasPVScreen({ onClose }: { onClose: () => void }) {
               {formatPrice(lowest)}
             </p>
           </div>
-        </div>
-
-        {/* Bar chart */}
-        <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-3">
-            Ventas por día
-          </p>
-          {chartData.length > 0 ? (
-            <BarChart data={chartData} />
-          ) : (
-            <div className="h-32 flex items-center justify-center">
-              <p className="text-xs text-muted-foreground">Sin datos</p>
-            </div>
-          )}
         </div>
 
         {/* Payment type breakdown */}
@@ -839,10 +791,6 @@ function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
   const leastSold = productStats[productStats.length - 1];
   const totalQty = productStats.reduce((acc, p) => acc + p.qty, 0);
 
-  const chartData = productStats
-    .slice(0, 10)
-    .map((p) => ({ label: p.name.slice(0, 8), value: p.qty }));
-
   const pvName = selectedPvId
     ? (getPuntosVenta().find((p) => p.id === selectedPvId)?.name ??
       selectedPvId)
@@ -964,23 +912,6 @@ function VentasPorProductosPVScreen({ onClose }: { onClose: () => void }) {
               {leastSold?.qty ?? 0} uds.
             </p>
           </div>
-        </div>
-
-        {/* Chart */}
-        <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-1">
-            Top 10 productos (cantidad vendida)
-          </p>
-          <p className="text-[10px] text-muted-foreground mb-3">
-            Eje X: productos · Eje Y: unidades
-          </p>
-          {chartData.length > 0 ? (
-            <BarChart data={chartData} />
-          ) : (
-            <div className="h-32 flex items-center justify-center">
-              <p className="text-xs text-muted-foreground">Sin datos</p>
-            </div>
-          )}
         </div>
 
         {/* Product table with collapsible details */}

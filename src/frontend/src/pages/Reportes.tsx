@@ -40,24 +40,6 @@ function getCustomerName(id: bigint, customers: Customer[]): string {
 }
 
 // Simple bar chart rendered with divs
-function BarChart({ data }: { data: { label: string; value: number }[] }) {
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <div className="flex items-end gap-1 h-32 w-full">
-      {data.map((d) => (
-        <div key={d.label} className="flex flex-col items-center flex-1 gap-1">
-          <div
-            className="w-full rounded-t-sm bg-teal transition-all"
-            style={{ height: `${Math.max((d.value / max) * 100, 4)}%` }}
-          />
-          <span className="text-[9px] text-muted-foreground truncate w-full text-center">
-            {d.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── Sub-screen header ────────────────────────────────────────────────────────
 function SubScreenHeader({
@@ -260,18 +242,6 @@ function SalesReportScreen({
       .slice(0, 5);
   }, [filtered, customers]);
 
-  const chartData = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of filtered) {
-      const d = isoDate(s.date);
-      map.set(d, (map.get(d) ?? 0) + Number(s.totalAmount));
-    }
-    return Array.from(map.entries())
-      .sort()
-      .slice(-10)
-      .map(([label, value]) => ({ label: label.slice(5), value }));
-  }, [filtered]);
-
   const exportPDF = () => {
     const htmlHeader = buildHtmlHeader();
     const customerRows = perCustomer
@@ -321,20 +291,6 @@ function SalesReportScreen({
           singleDate={singleDate}
           setSingleDate={setSingleDate}
         />
-        <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-3">
-            Ventas por día
-          </p>
-          {chartData.length > 0 ? (
-            <BarChart data={chartData} />
-          ) : (
-            <div className="h-32 flex items-center justify-center">
-              <p className="text-xs text-muted-foreground">
-                Sin datos en el período
-              </p>
-            </div>
-          )}
-        </div>
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Estadísticas
@@ -486,10 +442,6 @@ function ProductsReportScreen({
       }
     : null;
 
-  const chartData = sortedByQty
-    .slice(0, 10)
-    .map(([label, value]) => ({ label, value }));
-
   const exportPDF = () => {
     const htmlHeader = buildHtmlHeader();
     const periodLabel =
@@ -536,23 +488,6 @@ function ProductsReportScreen({
           singleDate={singleDate}
           setSingleDate={setSingleDate}
         />
-        <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-1">
-            Cantidad vendida por producto
-          </p>
-          <p className="text-[10px] text-muted-foreground mb-3">
-            Eje X: productos · Eje Y: unidades
-          </p>
-          {chartData.length > 0 ? (
-            <BarChart data={chartData} />
-          ) : (
-            <div className="h-32 flex items-center justify-center">
-              <p className="text-xs text-muted-foreground">
-                Sin datos en el período
-              </p>
-            </div>
-          )}
-        </div>
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Estadísticas
@@ -675,10 +610,6 @@ function SalidasReportScreen({ onClose }: { onClose: () => void }) {
   }, [filtered]);
   const topTipo = Array.from(tipoMap.entries()).sort((a, b) => b[1] - a[1])[0];
 
-  const chartData = productEntries
-    .slice(0, 10)
-    .map(([label, value]) => ({ label, value }));
-
   const exportPDF = () => {
     const htmlHeader = buildHtmlHeader();
     const periodLabel =
@@ -720,18 +651,6 @@ function SalidasReportScreen({ onClose }: { onClose: () => void }) {
           singleDate={singleDate}
           setSingleDate={setSingleDate}
         />
-        <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs font-semibold text-muted-foreground mb-3">
-            Unidades por producto
-          </p>
-          {chartData.length > 0 ? (
-            <BarChart data={chartData} />
-          ) : (
-            <p className="text-center text-muted-foreground text-sm py-4">
-              Sin datos en el período
-            </p>
-          )}
-        </div>
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Estadísticas
